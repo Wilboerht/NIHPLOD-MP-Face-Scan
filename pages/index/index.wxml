@@ -12,6 +12,11 @@
 
   <button class="btn-primary start-btn" bindtap="onStart">开始测肤</button>
 
+  <view class="history-entry" bindtap="onGoArchive">
+    <text>我的测肤档案</text>
+    <text class="arrow">›</text>
+  </view>
+
   <view class="history-entry" bindtap="onGoHistory">
     <text>查看历史报告</text>
     <text class="arrow">›</text>
@@ -19,7 +24,7 @@
 
   <view class="hello" wx:if="{{isLoggedIn && user}}">
     <text class="text-muted">你好，{{user.name || '护肤达人'}}</text>
-    <text class="edit-link" bindtap="onEditProfile">编辑</text>
+    <text class="edit-link" bindtap="onEditProfile">用户中心</text>
   </view>
 
   <view class="logout-entry text-muted" wx:if="{{isLoggedIn}}" bindtap="onLogout">

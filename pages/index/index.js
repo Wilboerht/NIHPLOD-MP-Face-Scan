@@ -55,6 +55,14 @@ Page({
     wx.navigateTo({ url: '/pages/history/history' });
   },
 
+  onGoArchive: function () {
+    if (!auth.isLoggedIn()) {
+      wx.navigateTo({ url: '/pages/login/login' });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/archive/archive' });
+  },
+
   onEditProfile: function () {
     wx.navigateTo({ url: '/pages/profile/profile' });
   },

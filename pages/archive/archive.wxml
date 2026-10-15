@@ -1,0 +1,231 @@
+<view class="container archive-page">
+  <!-- 未登录 -->
+  <view wx:if="{{notLoggedIn}}" class="state">
+    <view class="text-muted">登录后可查看你的测肤档案</view>
+    <button class="btn-primary state-btn" bindtap="onGoLogin">去登录</button>
+  </view>
+
+  <!-- 加载失败 -->
+  <view wx:elif="{{loadError}}" class="state">
+    <view class="text-muted">档案加载失败，请重试</view>
+    <button class="btn-plain state-btn" bindtap="onRetryEntries">重试</button>
+  </view>
+
+  <!-- 首屏加载 -->
+  <view wx:elif="{{loading}}" class="state text-muted">加载中…</view>
+
+  <block wx:else>
+    <!-- 统计卡 -->
+    <view class="card stats" wx:if="{{summary}}">
+      <view class="stat">
+        <view class="stat-num">{{summary.currentStreak}}<text class="stat-unit">天</text></view>
+        <view class="stat-label text-muted">连续打卡</view>
+      </view>
+      <view class="stat">
+        <view class="stat-num">{{summary.totalCheckins}}<text class="stat-unit">次</text></view>
+        <view class="stat-label text-muted">累计打卡</view>
+      </view>
+      <view class="stat" wx:if="{{summary.longestStreak > 0}}">
+        <view class="stat-num">{{summary.longestStreak}}<text class="stat-unit">天</text></view>
+        <view class="stat-label text-muted">最长连续</view>
+      </view>
+      <view class="stat">
+        <view class="stat-num">{{summary.testCount}}<text class="stat-unit">次</text></view>
+        <view class="stat-label text-muted">测肤次数</view>
+      </view>
+    </view>
+
+    <!-- 肌肤变化 -->
+    <view class="section-title">肌肤变化</view>
+    <view class="card">
+      <view class="range-row" wx:if="{{trendUnlocked}}">
+        <view
+          class="range-chip {{trendRange === item ? 'range-active' : ''}}"
+          wx:for="{{rangeOptions}}"
+          wx:key="*this"
+          data-range="{{item}}"
+          bindtap="onTrendRange"
+        >近 {{item}} 天</view>
+      </view>
+
+      <view wx:if="{{!trendsLoaded}}" class="trend-hint text-muted">趋势加载中…</view>
+
+      <block wx:elif="{{trendsError}}">
+        <view class="trend-hint text-muted">肌肤变化加载失败，可能是网络波动</view>
+        <button class="btn-plain retry-btn" bindtap="onRetryTrends">重试</button>
+      </block>
+
+      <block wx:elif="{{!trendUnlocked}}">
+        <view class="trend-hint text-muted">完成两次不同日期的测肤后解锁肌肤变化，定期测肤，看见肌肤的真实变化。</view>
+      </block>
+
+      <block wx:else>
+        <view class="trend-summary" wx:if="{{trendSummary}}">
+          <view class="trend-latest">最新 <text class="trend-score">{{trendSummary.latest}}</text> 分</view>
+          <view class="trend-delta {{trendSummary.deltaUp ? 'delta-up' : ''}}{{trendSummary.deltaDown ? 'delta-down' : ''}}">{{trendSummary.deltaText}}</view>
+        </view>
+        <view wx:if="{{rangeEmpty}}" class="trend-hint text-muted">近 {{trendRange}} 天内测肤不足 2 次，暂无趋势可看</view>
+        <canvas wx:else type="2d" id="trendCanvas" class="trend-canvas"></canvas>
+      </block>
+
+      <view class="more-row" wx:if="{{testsTotal > 0}}" bindtap="onGoHistory">
+        <text>全部测肤记录</text>
+        <text class="more-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 打卡 -->
+    <view class="section-title">打卡记录</view>
+    <view class="card">
+      <view class="band">
+        <view
+          class="band-item {{item.isToday ? 'band-today' : ''}}"
+          wx:for="{{band}}"
+          wx:key="date"
+          style="background: {{item.color}}"
+        ></view>
+      </view>
+      <view class="band-foot">
+        <text class="text-muted">近 30 天</text>
+        <view class="checkin-cta" bindtap="openCheckIn">
+          <block wx:if="{{manualToday}}">✓ 今日已打卡 · {{manualToday.stateLabel}}</block>
+          <block wx:else>今日打卡</block>
+        </view>
+      </view>
+    </view>
+
+    <!-- 护肤历程 -->
+    <view class="section-title">护肤历程</view>
+
+    <view class="sec-error" wx:if="{{testsError}}">
+      <text class="text-muted">测肤记录加载失败，可能是网络波动</text>
+      <view class="sec-retry" bindtap="onRetryTests">重试</view>
+    </view>
+
+    <view wx:if="{{testsLoaded && !testsError && !loading && timeline.length === 0}}" class="state text-muted">
+      还没有记录，完成一次测肤或打个卡吧
+    </view>
+
+    <block wx:if="{{timeline.length > 0}}">
+      <view class="day" wx:for="{{timeline}}" wx:key="dateStr" wx:for-item="day">
+        <view class="day-head">
+          <text class="day-label {{day.isToday ? 'day-today' : ''}}">{{day.label}}</text>
+          <text
+            class="day-add"
+            wx:if="{{day.canBackfill}}"
+            data-date="{{day.dateStr}}"
+            bindtap="openCheckIn"
+          >{{day.isToday ? '打卡' : '补打卡'}}</text>
+        </view>
+
+        <view class="event" wx:for="{{day.events}}" wx:key="key" wx:for-item="ev">
+          <!-- 打卡记录 -->
+          <block wx:if="{{ev.kind === 'diary'}}">
+            <view class="ev-diary card">
+              <view class="ev-dot" style="background: {{ev.stateColor}}"></view>
+              <view class="ev-body">
+                <view class="ev-title">{{ev.auto ? '在线测肤自动记录' : '打卡'}} · {{ev.stateLabel}}</view>
+                <view class="ev-tags" wx:if="{{ev.tags.length > 0}}">
+                  <text class="ev-tag" wx:for="{{ev.tags}}" wx:key="*this" wx:for-item="tag">{{tag}}</text>
+                </view>
+                <view class="ev-note text-muted" wx:if="{{ev.note}}">{{ev.note}}</view>
+              </view>
+              <view class="ev-actions" wx:if="{{!ev.auto}}">
+                <block wx:if="{{confirmingDeleteId === ev.id}}">
+                  <text class="link-danger" data-date="{{ev.dateStr}}" bindtap="onDeleteEntry">确认删除</text>
+                  <text class="link-plain" bindtap="onCancelDelete">取消</text>
+                </block>
+                <block wx:else>
+                  <text class="link" wx:if="{{ev.canEdit}}" data-date="{{ev.dateStr}}" bindtap="openCheckIn">编辑</text>
+                  <text class="link-danger" data-id="{{ev.id}}" bindtap="onDeleteTap">删除</text>
+                </block>
+              </view>
+            </view>
+          </block>
+
+          <!-- 测肤记录 -->
+          <block wx:else>
+            <view class="ev-test card" data-session="{{ev.sessionId}}" bindtap="onOpenTest">
+              <view class="ev-test-score" wx:if="{{ev.score !== null}}">{{ev.score}}<text class="ev-test-unit">分</text></view>
+              <view class="ev-test-score ev-test-empty" wx:else>—</view>
+              <view class="ev-test-info">
+                <view>{{ev.typeLabel || '测肤报告'}}</view>
+                <view class="text-muted">查看报告 ›</view>
+              </view>
+            </view>
+          </block>
+        </view>
+      </view>
+
+      <view
+        class="load-more text-muted"
+        wx:if="{{testsHasMore || entriesHasMore}}"
+        bindtap="onLoadMore"
+      >{{loadingMore ? '加载中…' : '加载更早'}}</view>
+    </block>
+  </block>
+
+  <!-- 打卡表单（底部弹层） -->
+  <view class="sheet-mask" wx:if="{{formOpen}}" bindtap="onFormClose" catchtouchmove="noop">
+    <scroll-view scroll-y class="sheet" catchtap="noop">
+      <view class="sheet-title">{{formIsEdit ? '编辑记录' : '打卡'}}</view>
+
+      <view class="sheet-row">
+        <text class="sheet-label">日期</text>
+        <picker mode="date" value="{{formDate}}" start="{{minDate}}" end="{{todayStr}}" bindchange="onFormDateChange">
+          <view class="sheet-date">{{formDateLabel}}</view>
+        </picker>
+      </view>
+
+      <view class="sheet-label">肌肤状态</view>
+      <view class="state-row">
+        <view
+          class="state-item {{formState === item.key ? 'state-active' : ''}}"
+          wx:for="{{stateOptions}}"
+          wx:key="key"
+          data-key="{{item.key}}"
+          bindtap="onFormState"
+        >
+          <view class="state-dot" style="background: {{item.color}}"></view>
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+
+      <view class="sheet-label">标签（最多 5 个）</view>
+      <view class="tag-row">
+        <text
+          class="tag {{item.selected ? 'tag-active' : ''}}"
+          wx:for="{{skinTagList}}"
+          wx:key="label"
+          data-label="{{item.label}}"
+          bindtap="onFormTag"
+        >{{item.label}}</text>
+      </view>
+      <view class="tag-row">
+        <text
+          class="tag {{item.selected ? 'tag-active' : ''}}"
+          wx:for="{{situationTagList}}"
+          wx:key="label"
+          data-label="{{item.label}}"
+          bindtap="onFormTag"
+        >{{item.label}}</text>
+      </view>
+
+      <view class="sheet-label">备注（选填）</view>
+      <textarea
+        class="sheet-note"
+        value="{{formNote}}"
+        maxlength="200"
+        placeholder="记录今天的肌肤感受"
+        bindinput="onFormNote"
+        auto-height
+      />
+
+      <button class="btn-primary sheet-save" loading="{{saving}}" disabled="{{saving}}" bindtap="onFormSave">
+        {{formIsEdit ? '保存修改' : '打卡'}}
+      </button>
+      <view class="sheet-delete" wx:if="{{formIsEdit}}" bindtap="onFormDelete">删除这天的记录</view>
+      <view class="sheet-cancel text-muted" bindtap="onFormClose">取消</view>
+    </scroll-view>
+  </view>
+</view>
