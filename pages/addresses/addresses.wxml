@@ -1,0 +1,102 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="state text-muted">加载中…</view>
+
+  <view wx:elif="{{loadError}}" class="state">
+    <view class="text-muted">地址加载失败</view>
+    <button class="btn-plain retry" bindtap="onRetry">重试</button>
+  </view>
+
+  <!-- 表单视图 -->
+  <block wx:elif="{{view === 'form'}}">
+    <view class="card">
+      <view class="form-title">{{editingId ? '编辑收货地址' : '新增收货地址'}}</view>
+      <view class="tip text-muted">地址仅用于积分兑礼礼品寄送，不会用于其他用途；可随时修改或删除。</view>
+
+      <view class="field-label">收货人 <text class="req">*</text></view>
+      <input
+        class="field-input"
+        value="{{form.recipient}}"
+        maxlength="20"
+        placeholder="收货人姓名"
+        bindinput="onRecipientInput"
+      />
+
+      <view class="field-label">手机号 <text class="req">*</text></view>
+      <input
+        class="field-input"
+        type="number"
+        value="{{form.phone}}"
+        maxlength="11"
+        placeholder="收货手机号"
+        bindinput="onPhoneInput"
+      />
+
+      <view class="field-label">省市区 <text class="req">*</text></view>
+      <picker mode="region" value="{{regionArray}}" bindchange="onRegionChange">
+        <view class="field-input picker-field {{form.region ? '' : 'picker-placeholder'}}">
+          {{form.region || '请选择省 / 市 / 区'}}
+        </view>
+      </picker>
+
+      <view class="field-label">详细地址 <text class="req">*</text></view>
+      <input
+        class="field-input"
+        value="{{form.detail}}"
+        maxlength="120"
+        placeholder="街道、门牌号等"
+        bindinput="onDetailInput"
+      />
+
+      <view class="default-row">
+        <text class="default-label">设为默认地址</text>
+        <switch checked="{{form.isDefault}}" color="#3D4430" bindchange="onDefaultChange" />
+      </view>
+    </view>
+
+    <button
+      class="btn-primary submit-btn"
+      loading="{{saving}}"
+      disabled="{{saving}}"
+      bindtap="onFormSave"
+    >保存</button>
+    <button class="btn-plain cancel-btn" disabled="{{saving}}" bindtap="onFormCancel">取消</button>
+  </block>
+
+  <!-- 列表视图 -->
+  <block wx:else>
+    <view wx:if="{{list.length === 0}}" class="state text-muted">暂无收货地址，积分兑礼寄送前请先添加</view>
+
+    <view class="card addr" wx:for="{{list}}" wx:key="id">
+      <view class="addr-main">
+        <view class="addr-line1">
+          <text class="addr-name">{{item.recipient}}</text>
+          <text class="addr-phone text-muted">{{item.phone}}</text>
+          <text class="addr-badge" wx:if="{{item.isDefault}}">默认</text>
+        </view>
+        <view class="addr-detail text-muted">{{item.region}} {{item.detail}}</view>
+      </view>
+      <view class="addr-actions">
+        <block wx:if="{{confirmingDeleteId === item.id}}">
+          <text class="link-danger" data-id="{{item.id}}" bindtap="onDeleteConfirm">确认删除</text>
+          <text class="link-plain" bindtap="onDeleteCancel">取消</text>
+        </block>
+        <block wx:else>
+          <text class="link" data-index="{{index}}" bindtap="onEdit">编辑</text>
+          <text class="link-danger" data-id="{{item.id}}" bindtap="onDeleteTap">删除</text>
+        </block>
+      </view>
+    </view>
+
+    <button
+      class="btn-primary add-btn"
+      wx:if="{{list.length > 0 && list.length < 20}}"
+      bindtap="onAdd"
+    >新增地址</button>
+    <view class="text-muted limit-tip" wx:if="{{list.length >= 20}}">最多保存 20 个收货地址</view>
+    <button
+      class="btn-plain add-btn"
+      wx:if="{{list.length === 0}}"
+      bindtap="onAdd"
+    >新增地址</button>
+  </block>
+</view>

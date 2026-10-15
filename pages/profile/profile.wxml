@@ -1,33 +1,128 @@
 <view class="container">
-  <view class="card field">
-    <view class="label">头像</view>
-    <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+  <!-- 头像区 -->
+  <view class="card user-head">
+    <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" disabled="{{saving}}">
       <image wx:if="{{displayAvatar}}" class="avatar" src="{{displayAvatar}}" mode="aspectFill" />
       <view wx:else class="avatar avatar-placeholder">{{avatarChar}}</view>
     </button>
-    <view class="hint text-muted">点击更换头像</view>
+    <view class="head-info">
+      <view class="head-name">{{nickname || '朋友'}}</view>
+      <view class="head-tip text-muted">{{saving ? '处理中…' : '点击更换头像'}}</view>
+    </view>
   </view>
 
-  <view class="card field">
-    <view class="label">昵称</view>
-    <input
-      class="nick-input"
-      type="nickname"
-      value="{{draftNickname}}"
-      placeholder="请输入昵称"
-      maxlength="20"
-      bindinput="onNicknameInput"
-    />
+  <!-- 基础资料 -->
+  <view class="card">
+    <!-- 昵称 -->
+    <view class="row">
+      <view class="row-label">昵称</view>
+      <block wx:if="{{editingNickname}}">
+        <input
+          class="row-input"
+          type="nickname"
+          value="{{nicknameDraft}}"
+          placeholder="请输入昵称"
+          maxlength="20"
+          bindinput="onNicknameInput"
+        />
+        <view class="row-actions">
+          <text class="link-plain" bindtap="onNicknameCancel">取消</text>
+          <text class="link-strong" bindtap="onNicknameSave">保存</text>
+        </view>
+      </block>
+      <block wx:else>
+        <view class="row-value">{{nickname || '未设置'}}</view>
+        <view class="row-modify" bindtap="onNicknameEdit">修改</view>
+      </block>
+    </view>
+
+    <view class="divider"></view>
+
+    <!-- 性别：男/女/保密三态 -->
+    <view class="row">
+      <view class="row-label">性别</view>
+      <view class="row-value">{{genderLabel}}</view>
+      <view class="row-modify" bindtap="onGenderToggle">{{editingGender ? '收起' : '修改'}}</view>
+    </view>
+    <view class="inline-panel" wx:if="{{editingGender}}">
+      <view class="inline-tip text-muted">用于会员服务与个性化推荐；可随时修改或设为保密。</view>
+      <view class="opt-row">
+        <view class="opt {{gender === 'male' ? 'opt-active' : ''}}" data-value="male" bindtap="onGenderPick">男</view>
+        <view class="opt {{gender === 'female' ? 'opt-active' : ''}}" data-value="female" bindtap="onGenderPick">女</view>
+        <view class="opt {{!gender ? 'opt-active' : ''}}" data-value="none" bindtap="onGenderPick">保密</view>
+        <text class="link-plain" bindtap="onGenderCancel">取消</text>
+      </view>
+    </view>
+
+    <view class="divider"></view>
+
+    <!-- 生日：仅未设置可设，设置后锁定 -->
+    <view class="row">
+      <view class="row-label">生日</view>
+      <view class="row-value">{{birthday || '未设置'}}</view>
+      <block wx:if="{{birthday}}">
+        <view class="row-lock">已锁定</view>
+      </block>
+      <block wx:elif="{{editingBirthday}}">
+        <view class="row-actions">
+          <text class="link-plain" bindtap="onBirthdayCancel">取消</text>
+          <text class="link-strong" bindtap="onBirthdaySave">保存</text>
+        </view>
+      </block>
+      <block wx:else>
+        <view class="row-modify" bindtap="onBirthdayEdit">设置</view>
+      </block>
+    </view>
+    <view class="inline-panel" wx:if="{{editingBirthday && !birthday}}">
+      <picker mode="date" value="{{birthdayDraft}}" start="1926-01-01" end="{{today}}" bindchange="onBirthdayChange">
+        <view class="picker-field {{birthdayDraft ? '' : 'picker-placeholder'}}">
+          {{birthdayDraft || '请选择生日日期'}}
+        </view>
+      </picker>
+      <view class="inline-tip text-muted">生日设置后不可自助修改（用于生日礼遇），请确认后保存。</view>
+    </view>
   </view>
 
-  <view class="card field" wx:if="{{vip}}">
-    <view class="label">会员与测肤用量</view>
+  <!-- 账号与安全 -->
+  <view class="section-title">账号与安全</view>
+  <view class="card">
+    <view class="row nav" bindtap="onGoPhone">
+      <view class="row-label">绑定手机号</view>
+      <view class="row-value">{{phoneLabel}}</view>
+      <view class="arrow">›</view>
+    </view>
+    <view class="divider"></view>
+    <view class="row nav" bindtap="onGoPassword">
+      <view class="row-label">密码</view>
+      <view class="row-value">{{passwordLabel}}</view>
+      <view class="arrow">›</view>
+    </view>
+    <view class="divider"></view>
+    <view class="row nav" bindtap="onGoAddresses">
+      <view class="row-label">收货地址</view>
+      <view class="row-value">{{addressLabel}}</view>
+      <view class="arrow">›</view>
+    </view>
+  </view>
+
+  <!-- 我的档案 -->
+  <view class="section-title">我的档案</view>
+  <view class="card">
+    <view class="row nav" bindtap="onGoArchive">
+      <view class="row-label">测肤档案</view>
+      <view class="row-value">趋势 · 打卡 · 历程</view>
+      <view class="arrow">›</view>
+    </view>
+  </view>
+
+  <!-- 会员与测肤用量 -->
+  <view class="section-title" wx:if="{{vip}}">会员与用量</view>
+  <view class="card" wx:if="{{vip}}">
     <view class="vip-level">{{vip.levelLabel}}</view>
     <view class="vip-usage">AI 测肤 {{vip.usageText}}</view>
     <view class="hint text-muted" wx:if="{{vip.todayText}}">{{vip.todayText}}</view>
     <view class="hint text-muted" wx:if="{{vip.exhaustedText}}">{{vip.exhaustedText}}</view>
   </view>
 
-  <button class="btn-primary save-btn" loading="{{saving}}" disabled="{{saving}}" bindtap="onSave">保存</button>
-  <button class="btn-plain cancel-btn" bindtap="onCancel">取消</button>
+  <button class="btn-plain logout-btn" bindtap="onLogout">退出登录</button>
 </view>

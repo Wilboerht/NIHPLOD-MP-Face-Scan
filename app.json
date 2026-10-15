@@ -7,7 +7,11 @@
     "pages/analyzing/analyzing",
     "pages/result/result",
     "pages/history/history",
-    "pages/profile/profile"
+    "pages/archive/archive",
+    "pages/profile/profile",
+    "pages/phone-rebind/phone-rebind",
+    "pages/password/password",
+    "pages/addresses/addresses"
   ],
   "window": {
     "navigationBarBackgroundColor": "#F2EDE5",

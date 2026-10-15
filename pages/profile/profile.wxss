@@ -1,15 +1,9 @@
-.field {
+/* 用户中心 */
+.user-head {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 48rpx 32rpx;
-}
-
-.label {
-  align-self: flex-start;
-  font-size: 26rpx;
-  color: #8a8577;
-  margin-bottom: 24rpx;
+  gap: 32rpx;
+  padding: 40rpx 32rpx;
 }
 
 .avatar-btn {
@@ -24,8 +18,8 @@
 }
 
 .avatar {
-  width: 160rpx;
-  height: 160rpx;
+  width: 140rpx;
+  height: 140rpx;
   border-radius: 50%;
   background: #e3dccf;
 }
@@ -34,30 +28,140 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 56rpx;
+  font-size: 52rpx;
   color: #F2EDE5;
   background: #3D4430;
 }
 
-.hint {
-  margin-top: 16rpx;
+.head-info {
+  min-width: 0;
+  flex: 1;
 }
 
-.nick-input {
-  width: 100%;
-  font-size: 32rpx;
-  padding: 16rpx 0;
+.head-name {
+  font-size: 36rpx;
+  font-weight: 600;
+}
+
+.head-tip {
+  margin-top: 8rpx;
+}
+
+/* 信息行 */
+.row {
+  display: flex;
+  align-items: center;
+  min-height: 88rpx;
+}
+
+.row-label {
+  width: 160rpx;
+  flex-shrink: 0;
+  font-size: 28rpx;
+  color: #8a8577;
+}
+
+.row-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 30rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 30rpx;
+  padding: 12rpx 0;
   border-bottom: 2rpx solid #e3dccf;
 }
 
-.save-btn {
-  margin-top: 32rpx;
+.row-actions {
+  display: flex;
+  gap: 28rpx;
+  margin-left: 16rpx;
+  flex-shrink: 0;
 }
 
-.cancel-btn {
-  margin-top: 24rpx;
+.row-modify {
+  font-size: 26rpx;
+  color: #6b7a4f;
+  margin-left: 24rpx;
+  flex-shrink: 0;
 }
 
+.row-lock {
+  font-size: 24rpx;
+  color: #b0a89a;
+  margin-left: 24rpx;
+  flex-shrink: 0;
+}
+
+.row.nav .arrow {
+  margin-left: 16rpx;
+  color: #b0a89a;
+  font-size: 36rpx;
+}
+
+.divider {
+  height: 2rpx;
+  background: #f2ede5;
+}
+
+.link-plain {
+  font-size: 26rpx;
+  color: #8a8577;
+}
+
+.link-strong {
+  font-size: 26rpx;
+  color: #3D4430;
+  font-weight: 600;
+}
+
+/* 行内展开面板 */
+.inline-panel {
+  padding: 8rpx 0 24rpx 160rpx;
+}
+
+.inline-tip {
+  margin-bottom: 20rpx;
+}
+
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+
+.opt {
+  padding: 10rpx 36rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid #e3dccf;
+  font-size: 28rpx;
+  color: #5a5546;
+}
+
+.opt-active {
+  background: #3D4430;
+  border-color: #3D4430;
+  color: #F2EDE5;
+}
+
+.picker-field {
+  padding: 16rpx 0;
+  font-size: 30rpx;
+  border-bottom: 2rpx solid #e3dccf;
+}
+
+.picker-placeholder {
+  color: #b0a89a;
+}
+
+/* 会员与用量 */
 .vip-level {
   font-size: 32rpx;
   font-weight: 600;
@@ -65,4 +169,12 @@
 
 .vip-usage {
   margin-top: 12rpx;
+}
+
+.hint {
+  margin-top: 12rpx;
+}
+
+.logout-btn {
+  margin: 48rpx 0 24rpx;
 }

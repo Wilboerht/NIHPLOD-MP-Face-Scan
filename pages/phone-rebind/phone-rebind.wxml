@@ -1,0 +1,79 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="state text-muted">加载中…</view>
+
+  <view wx:elif="{{loadError}}" class="state">
+    <view class="text-muted">信息加载失败，请重试</view>
+    <button class="btn-plain retry" bindtap="onRetry">重试</button>
+  </view>
+
+  <block wx:else>
+    <view class="card">
+      <view class="cur-row">
+        <text class="cur-label text-muted">当前手机号</text>
+        <text class="cur-value">{{phoneLabel}}</text>
+      </view>
+      <view class="tip text-muted">
+        {{hasRealPhone ? '为保障账户安全，需验证当前手机号和新手机号各一次；换绑成功后需重新登录。' : '当前账号未绑定手机号，验证新手机号后即可完成换绑；换绑成功后需重新登录。'}}
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="field-label">新手机号</view>
+      <input
+        class="field-input"
+        type="number"
+        value="{{newPhone}}"
+        maxlength="11"
+        placeholder="输入新手机号"
+        bindinput="onNewPhoneInput"
+      />
+
+      <block wx:if="{{hasRealPhone}}">
+        <view class="field-label">当前手机验证码</view>
+        <view class="code-row">
+          <input
+            class="field-input code-input"
+            type="number"
+            value="{{currentCode}}"
+            maxlength="6"
+            placeholder="6位验证码"
+            bindinput="onCurrentCodeInput"
+          />
+          <button
+            class="code-btn"
+            size="mini"
+            disabled="{{cdCurrent > 0 || sending === 'current'}}"
+            data-target="current"
+            bindtap="onSendCode"
+          >{{cdCurrent > 0 ? cdCurrent + 's 后重发' : '发送验证码'}}</button>
+        </view>
+      </block>
+
+      <view class="field-label">新手机验证码</view>
+      <view class="code-row">
+        <input
+          class="field-input code-input"
+          type="number"
+          value="{{newCode}}"
+          maxlength="6"
+          placeholder="6位验证码"
+          bindinput="onNewCodeInput"
+        />
+        <button
+          class="code-btn"
+          size="mini"
+          disabled="{{cdNew > 0 || sending === 'new'}}"
+          data-target="new"
+          bindtap="onSendCode"
+        >{{cdNew > 0 ? cdNew + 's 后重发' : '发送验证码'}}</button>
+      </view>
+    </view>
+
+    <button
+      class="btn-primary submit-btn"
+      loading="{{submitting}}"
+      disabled="{{submitting}}"
+      bindtap="onSubmit"
+    >确认换绑</button>
+  </block>
+</view>

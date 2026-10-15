@@ -1,0 +1,73 @@
+.state {
+  text-align: center;
+  padding: 120rpx 0;
+}
+
+.retry {
+  margin: 40rpx auto 0;
+  width: 300rpx;
+}
+
+.cur-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.cur-label {
+  font-size: 28rpx;
+}
+
+.cur-value {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.tip {
+  line-height: 1.7;
+}
+
+.field-label {
+  font-size: 26rpx;
+  color: #8a8577;
+  margin: 28rpx 0 12rpx;
+}
+
+.field-input {
+  width: 100%;
+  font-size: 30rpx;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid #e3dccf;
+  box-sizing: border-box;
+}
+
+.code-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.code-input {
+  flex: 1;
+}
+
+.code-btn {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 24rpx;
+  font-size: 24rpx;
+  line-height: 64rpx;
+  height: 64rpx;
+  border-radius: 999rpx;
+  background: #f0ebe0;
+  color: #3D4430;
+}
+
+.code-btn[disabled] {
+  opacity: 0.5;
+}
+
+.submit-btn {
+  margin-top: 48rpx;
+}

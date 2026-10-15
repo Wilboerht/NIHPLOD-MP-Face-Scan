@@ -1,0 +1,134 @@
+.state {
+  text-align: center;
+  padding: 100rpx 0;
+}
+
+.retry {
+  margin: 40rpx auto 0;
+  width: 300rpx;
+}
+
+.form-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.tip {
+  line-height: 1.7;
+}
+
+.field-label {
+  font-size: 26rpx;
+  color: #8a8577;
+  margin: 28rpx 0 12rpx;
+}
+
+.req {
+  color: #b4553f;
+}
+
+.field-input {
+  width: 100%;
+  font-size: 30rpx;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid #e3dccf;
+  box-sizing: border-box;
+}
+
+.picker-field {
+  min-height: 40rpx;
+}
+
+.picker-placeholder {
+  color: #b0a89a;
+}
+
+.default-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 32rpx;
+}
+
+.default-label {
+  font-size: 28rpx;
+}
+
+.submit-btn {
+  margin-top: 48rpx;
+}
+
+.cancel-btn {
+  margin-top: 24rpx;
+}
+
+.add-btn {
+  margin-top: 32rpx;
+}
+
+.limit-tip {
+  text-align: center;
+  margin-top: 32rpx;
+}
+
+/* 地址卡片 */
+.addr {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.addr-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.addr-line1 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.addr-name {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.addr-badge {
+  font-size: 20rpx;
+  color: #3D4430;
+  background: rgba(61, 68, 48, 0.1);
+  border-radius: 999rpx;
+  padding: 2rpx 16rpx;
+}
+
+.addr-detail {
+  margin-top: 12rpx;
+  line-height: 1.6;
+}
+
+.addr-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 20rpx;
+}
+
+.link {
+  font-size: 26rpx;
+  color: #6b7a4f;
+}
+
+.link-danger {
+  font-size: 26rpx;
+  color: #b4553f;
+}
+
+.link-plain {
+  font-size: 26rpx;
+  color: #8a8577;
+}
