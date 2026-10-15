@@ -1,0 +1,68 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48rpx 32rpx;
+}
+
+.label {
+  align-self: flex-start;
+  font-size: 26rpx;
+  color: #8a8577;
+  margin-bottom: 24rpx;
+}
+
+.avatar-btn {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  line-height: normal;
+}
+
+.avatar-btn::after {
+  border: none;
+}
+
+.avatar {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  background: #e3dccf;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+  color: #F2EDE5;
+  background: #3D4430;
+}
+
+.hint {
+  margin-top: 16rpx;
+}
+
+.nick-input {
+  width: 100%;
+  font-size: 32rpx;
+  padding: 16rpx 0;
+  border-bottom: 2rpx solid #e3dccf;
+}
+
+.save-btn {
+  margin-top: 32rpx;
+}
+
+.cancel-btn {
+  margin-top: 24rpx;
+}
+
+.vip-level {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.vip-usage {
+  margin-top: 12rpx;
+}

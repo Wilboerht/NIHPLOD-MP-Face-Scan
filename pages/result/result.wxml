@@ -1,0 +1,107 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="state text-muted">报告加载中…</view>
+
+  <view wx:elif="{{loadError}}" class="state">
+    <view class="text-muted">{{loadError}}</view>
+    <button class="btn-plain retry" bindtap="onBackHome">返回首页</button>
+  </view>
+
+  <block wx:else>
+    <!-- 总览卡 -->
+    <view class="card overview">
+      <view class="nickname" wx:if="{{nickname}}">{{nickname}} 的肌肤报告</view>
+      <view class="score-row">
+        <view class="score" wx:if="{{overallScore !== null}}">
+          <text class="score-num">{{overallScore}}</text>
+          <text class="score-unit">分</text>
+        </view>
+        <view class="meta">
+          <view wx:if="{{skinTypeLabel}}">肤质：{{skinTypeLabel}}</view>
+          <view wx:if="{{skinAge !== null}}">肌龄：{{skinAge}} 岁</view>
+          <view class="text-muted" wx:if="{{analyzedAt}}">{{analyzedAt}}</view>
+        </view>
+      </view>
+      <view class="summary" wx:if="{{summary}}">{{summary}}</view>
+    </view>
+
+    <!-- 十维评分：雷达图 + 数据明细列表 -->
+    <view class="section-title" wx:if="{{dimensionList.length}}">十维肌肤评分</view>
+    <view class="card radar-card" wx:if="{{hasRadar}}">
+      <canvas type="2d" id="radarCanvas" class="radar-canvas"></canvas>
+    </view>
+    <view class="card" wx:if="{{dimensionList.length}}">
+      <view class="dim-row" wx:for="{{dimensionList}}" wx:key="key">
+        <view class="dim-label">{{item.label}}</view>
+        <view class="dim-bar">
+          <view class="dim-bar-inner" style="width: {{item.score || 0}}%"></view>
+        </view>
+        <view class="dim-score">{{item.score}}<text class="dim-grade" wx:if="{{item.gradeLabel}}"> {{item.gradeLabel}}</text></view>
+      </view>
+    </view>
+
+    <!-- 重点问题（v2 顾问报告） -->
+    <view class="section-title" wx:if="{{issues.length}}">重点问题</view>
+    <view class="card issue" wx:for="{{issues}}" wx:key="title" wx:for-item="issue">
+      <view class="issue-head">
+        <view class="issue-title">{{issue.title}}</view>
+        <view class="issue-sev" wx:if="{{issue.severityLabel}}">{{issue.severityLabel}}</view>
+      </view>
+      <view class="issue-block" wx:if="{{issue.observation}}">观察：{{issue.observation}}</view>
+      <view class="issue-block" wx:if="{{issue.directCauses}}">诱因：{{issue.directCauses}}</view>
+      <view class="issue-block" wx:if="{{issue.skincarePlan}}">护理方案：{{issue.skincarePlan}}</view>
+      <view class="issue-block" wx:if="{{issue.lifestylePlan}}">生活建议：{{issue.lifestylePlan}}</view>
+      <view class="issue-block text-muted" wx:if="{{issue.medicalBoundary}}">就医边界：{{issue.medicalBoundary}}</view>
+    </view>
+
+    <!-- 检测到的肌肤状况 -->
+    <view class="section-title" wx:if="{{conditions.length}}">肌肤状况</view>
+    <view class="card" wx:if="{{conditions.length}}">
+      <view class="cond-row" wx:for="{{conditions}}" wx:key="condition">
+        <text class="cond-name">{{item.condition}}</text>
+        <text class="cond-sev" wx:if="{{item.severityLabel}}">{{item.severityLabel}}</text>
+        <text class="cond-area text-muted" wx:if="{{item.area}}">{{item.area}}</text>
+      </view>
+    </view>
+
+    <!-- 分区分析 -->
+    <view class="section-title" wx:if="{{zoneList.length}}">分区分析</view>
+    <view class="card" wx:if="{{zoneList.length}}">
+      <view class="zone" wx:for="{{zoneList}}" wx:key="key">
+        <view class="zone-label">{{item.label}}</view>
+        <view class="zone-body">
+          <view wx:if="{{item.condition}}">{{item.condition}}</view>
+          <view class="text-muted" wx:if="{{item.advice}}">建议：{{item.advice}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 肌肤优势 -->
+    <view class="section-title" wx:if="{{strengths.length}}">肌肤优势</view>
+    <view class="card" wx:if="{{strengths.length}}">
+      <view class="strength" wx:for="{{strengths}}" wx:key="*this">· {{item}}</view>
+    </view>
+
+    <!-- 推荐产品 -->
+    <view class="section-title" wx:if="{{products.length}}">为你推荐</view>
+    <view class="card product" wx:for="{{products}}" wx:key="id" wx:for-item="p">
+      <view class="p-name">{{p.name}}</view>
+      <view class="p-reason text-muted" wx:if="{{p.reason}}">{{p.reason}}</view>
+      <view class="p-price" wx:if="{{p.price}}">¥{{p.price}}</view>
+      <view class="p-actions">
+        <button wx:if="{{p.showShop}}" class="p-btn p-btn-primary" data-id="{{p.id}}" bindtap="onBuyShop">微信小店购买</button>
+        <button wx:if="{{p.copyText}}" class="p-btn" data-copy="{{p.copyText}}" data-label="{{p.copyLabel}}" bindtap="onCopyCommand">复制口令购买</button>
+      </view>
+    </view>
+
+    <!-- 操作区：海报/分享 -->
+    <view class="actions">
+      <button class="btn-plain action" bindtap="onSavePoster">保存海报</button>
+      <button class="btn-plain action" open-type="share">分享给朋友</button>
+    </view>
+
+    <view class="home text-muted" bindtap="onBackHome">返回首页</view>
+
+    <!-- 海报离屏画布（1440×1920 缓冲，移出可视区） -->
+    <canvas type="2d" id="posterCanvas" class="poster-canvas"></canvas>
+  </block>
+</view>

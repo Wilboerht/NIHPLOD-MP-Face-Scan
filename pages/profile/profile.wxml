@@ -1,0 +1,33 @@
+<view class="container">
+  <view class="card field">
+    <view class="label">头像</view>
+    <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+      <image wx:if="{{displayAvatar}}" class="avatar" src="{{displayAvatar}}" mode="aspectFill" />
+      <view wx:else class="avatar avatar-placeholder">{{avatarChar}}</view>
+    </button>
+    <view class="hint text-muted">点击更换头像</view>
+  </view>
+
+  <view class="card field">
+    <view class="label">昵称</view>
+    <input
+      class="nick-input"
+      type="nickname"
+      value="{{draftNickname}}"
+      placeholder="请输入昵称"
+      maxlength="20"
+      bindinput="onNicknameInput"
+    />
+  </view>
+
+  <view class="card field" wx:if="{{vip}}">
+    <view class="label">会员与测肤用量</view>
+    <view class="vip-level">{{vip.levelLabel}}</view>
+    <view class="vip-usage">AI 测肤 {{vip.usageText}}</view>
+    <view class="hint text-muted" wx:if="{{vip.todayText}}">{{vip.todayText}}</view>
+    <view class="hint text-muted" wx:if="{{vip.exhaustedText}}">{{vip.exhaustedText}}</view>
+  </view>
+
+  <button class="btn-primary save-btn" loading="{{saving}}" disabled="{{saving}}" bindtap="onSave">保存</button>
+  <button class="btn-plain cancel-btn" bindtap="onCancel">取消</button>
+</view>

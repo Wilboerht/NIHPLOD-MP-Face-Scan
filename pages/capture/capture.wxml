@@ -1,0 +1,48 @@
+<view class="capture-page">
+  <view class="camera-wrap">
+    <camera
+      device-position="front"
+      flash="off"
+      mode="normal"
+      class="camera"
+      bindinitdone="onInitDone"
+      binderror="onCameraError"
+    ></camera>
+    <view class="face-guide"></view>
+
+    <!-- 步骤指示：正脸 → 右转 → 左转 → 抬头 -->
+    <view class="step-bar">
+      <view
+        wx:for="{{steps}}"
+        wx:key="key"
+        class="step-item {{item.done ? 'step-done' : ''}} {{item.active ? 'step-active' : ''}}"
+      >{{item.label}}</view>
+    </view>
+  </view>
+
+  <view class="instruction">{{instruction}}</view>
+  <view class="status-hint" wx:if="{{statusHint}}">{{statusHint}}</view>
+  <view class="text-muted mode-tip" wx:if="{{mode === 'manual'}}">当前为手动模式：摆好姿势后点击快门</view>
+
+  <view class="skin-state">
+    <view class="ss-label text-muted">拍摄时的肌肤状态</view>
+    <view class="ss-options">
+      <view
+        wx:for="{{skinStateOptions}}"
+        wx:key="value"
+        class="ss-item {{skinState === item.value ? 'ss-active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onSkinStateTap"
+      >{{item.label}}</view>
+    </view>
+  </view>
+
+  <view class="shutter-area">
+    <block wx:if="{{showManualBtn || mode === 'manual'}}">
+      <view class="shutter {{capturing ? 'shutter-disabled' : ''}}" bindtap="onShutter">
+        <view class="shutter-inner"></view>
+      </view>
+    </block>
+    <view wx:else class="auto-tip text-muted">识别到姿态后将自动拍摄</view>
+  </view>
+</view>

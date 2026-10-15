@@ -1,0 +1,68 @@
+.analyzing-page {
+  padding-top: 200rpx;
+  text-align: center;
+}
+
+.spinner {
+  width: 96rpx;
+  height: 96rpx;
+  margin: 0 auto 48rpx;
+  border: 8rpx solid #e3dccf;
+  border-top-color: #3D4430;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.stage {
+  font-size: 32rpx;
+  margin-bottom: 32rpx;
+}
+
+.progress-bar {
+  width: 560rpx;
+  height: 12rpx;
+  margin: 0 auto;
+  background: #e3dccf;
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.progress-inner {
+  height: 100%;
+  background: #3D4430;
+  border-radius: 999rpx;
+  transition: width 0.3s;
+}
+
+.tip {
+  margin-top: 40rpx;
+}
+
+.error-icon {
+  width: 96rpx;
+  height: 96rpx;
+  margin: 0 auto 40rpx;
+  border-radius: 50%;
+  background: #b3543f;
+  color: #fff;
+  font-size: 56rpx;
+  line-height: 96rpx;
+}
+
+.error-text {
+  font-size: 30rpx;
+  margin-bottom: 48rpx;
+  padding: 0 48rpx;
+}
+
+.retry-btn {
+  margin: 0 64rpx 24rpx;
+}
+
+.back-btn {
+  margin: 0 64rpx;
+}

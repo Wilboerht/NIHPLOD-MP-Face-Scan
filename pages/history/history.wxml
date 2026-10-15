@@ -1,0 +1,42 @@
+<view class="container">
+  <view wx:if="{{notLoggedIn}}" class="state">
+    <view class="text-muted">登录后可查看历史测肤报告</view>
+    <button class="btn-primary retry" bindtap="onGoLogin">去登录</button>
+  </view>
+
+  <view wx:elif="{{loading}}" class="state text-muted">加载中…</view>
+
+  <view wx:elif="{{loadError}}" class="state">
+    <view class="text-muted">{{loadError}}</view>
+    <button class="btn-plain retry" bindtap="onRetry">重试</button>
+  </view>
+
+  <view wx:elif="{{list.length === 0}}" class="state text-muted">还没有测肤记录，去测一次吧</view>
+
+  <block wx:else>
+    <view
+      class="card item"
+      wx:for="{{list}}"
+      wx:key="sessionId"
+      data-session-id="{{item.sessionId}}"
+      bindtap="onItemTap"
+    >
+      <view class="item-main">
+        <view class="item-score" wx:if="{{item.score !== null}}">{{item.score}}<text class="item-unit">分</text></view>
+        <view class="item-score text-muted" wx:else>—</view>
+        <view class="item-info">
+          <view wx:if="{{item.typeLabel}}">{{item.typeLabel}}</view>
+          <view class="text-muted">{{item.timeText}}</view>
+        </view>
+      </view>
+      <view class="arrow">›</view>
+    </view>
+
+    <view
+      wx:if="{{page < totalPages}}"
+      class="load-more text-muted"
+      bindtap="onLoadMore"
+    >{{loadingMore ? '加载中…' : '加载更多'}}</view>
+    <view wx:else class="load-more text-muted">没有更多了</view>
+  </block>
+</view>

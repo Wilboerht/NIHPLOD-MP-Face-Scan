@@ -1,0 +1,26 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/login/login",
+    "pages/questionnaire/questionnaire",
+    "pages/capture/capture",
+    "pages/analyzing/analyzing",
+    "pages/result/result",
+    "pages/history/history",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#F2EDE5",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "肌智派",
+    "backgroundColor": "#F2EDE5",
+    "backgroundTextStyle": "dark"
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "networkTimeout": {
+    "request": 100000,
+    "downloadFile": 100000
+  },
+  "sitemapLocation": "sitemap.json"
+}

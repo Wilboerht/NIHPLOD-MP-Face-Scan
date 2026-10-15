@@ -1,0 +1,139 @@
+.capture-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #F2EDE5;
+}
+
+.camera-wrap {
+  position: relative;
+  width: 100%;
+  height: 750rpx;
+}
+
+.camera {
+  width: 100%;
+  height: 100%;
+}
+
+.face-guide {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 420rpx;
+  height: 560rpx;
+  border: 4rpx dashed rgba(242, 237, 229, 0.9);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.step-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 20rpx;
+  display: flex;
+  justify-content: center;
+  gap: 16rpx;
+  pointer-events: none;
+}
+
+.step-item {
+  padding: 6rpx 24rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  color: rgba(242, 237, 229, 0.7);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.step-active {
+  color: #3D4430;
+  background: #F2EDE5;
+}
+
+.step-done {
+  color: #3D4430;
+  background: #a9b78c;
+}
+
+.instruction {
+  text-align: center;
+  font-size: 34rpx;
+  font-weight: 600;
+  padding: 28rpx 32rpx 4rpx;
+}
+
+.status-hint {
+  text-align: center;
+  font-size: 26rpx;
+  color: #6b7a4f;
+  padding: 8rpx 32rpx;
+  min-height: 40rpx;
+}
+
+.mode-tip {
+  text-align: center;
+  padding: 4rpx 32rpx;
+}
+
+.skin-state {
+  padding: 16rpx 32rpx;
+}
+
+.ss-label {
+  margin-bottom: 12rpx;
+}
+
+.ss-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.ss-item {
+  padding: 10rpx 28rpx;
+  border-radius: 999rpx;
+  background: #FFFFFF;
+  font-size: 26rpx;
+  border: 2rpx solid transparent;
+}
+
+.ss-active {
+  border-color: #3D4430;
+  background: #f7f3ea;
+}
+
+.shutter-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx 0 48rpx;
+  min-height: 200rpx;
+}
+
+.shutter {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  border: 8rpx solid #3D4430;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shutter-inner {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 50%;
+  background: #3D4430;
+}
+
+.shutter-disabled {
+  opacity: 0.4;
+}
+
+.auto-tip {
+  text-align: center;
+}

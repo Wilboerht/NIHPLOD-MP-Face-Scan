@@ -1,0 +1,17 @@
+<view class="container analyzing-page">
+  <block wx:if="{{!error}}">
+    <view class="spinner"></view>
+    <view class="stage">{{stageText}}</view>
+    <view class="progress-bar">
+      <view class="progress-inner" style="width: {{progress}}%"></view>
+    </view>
+    <view class="text-muted tip">AI 正在深度分析，全程约需 1-2 分钟，请勿退出</view>
+  </block>
+
+  <block wx:else>
+    <view class="error-icon">!</view>
+    <view class="error-text">{{error}}</view>
+    <button class="btn-primary retry-btn" bindtap="onRetry">重试</button>
+    <button class="btn-plain back-btn" bindtap="onBack">返回重拍</button>
+  </block>
+</view>

@@ -1,0 +1,48 @@
+.state {
+  text-align: center;
+  padding: 120rpx 0;
+}
+
+.retry {
+  margin: 40rpx auto 0;
+  width: 300rpx;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.item-main {
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+}
+
+.item-score {
+  font-size: 48rpx;
+  font-weight: 700;
+  width: 120rpx;
+}
+
+.item-unit {
+  font-size: 22rpx;
+  font-weight: 400;
+  color: #8a8577;
+  margin-left: 4rpx;
+}
+
+.item-info {
+  font-size: 28rpx;
+}
+
+.arrow {
+  color: #b5ad9c;
+  font-size: 36rpx;
+}
+
+.load-more {
+  text-align: center;
+  padding: 32rpx 0 64rpx;
+}

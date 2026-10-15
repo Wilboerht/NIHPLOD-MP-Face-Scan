@@ -1,0 +1,218 @@
+.state {
+  text-align: center;
+  padding: 120rpx 0;
+}
+
+.retry {
+  margin: 40rpx auto 0;
+  width: 300rpx;
+}
+
+.nickname {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 32rpx;
+}
+
+.score-num {
+  font-size: 96rpx;
+  font-weight: 700;
+}
+
+.score-unit {
+  font-size: 28rpx;
+  color: #8a8577;
+  margin-left: 8rpx;
+}
+
+.meta {
+  font-size: 26rpx;
+  color: #5a5546;
+  line-height: 1.8;
+}
+
+.summary {
+  margin-top: 24rpx;
+  color: #5a5546;
+  font-size: 28rpx;
+}
+
+.dim-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.dim-label {
+  width: 180rpx;
+  font-size: 26rpx;
+}
+
+.dim-bar {
+  flex: 1;
+  height: 10rpx;
+  background: #eee7da;
+  border-radius: 999rpx;
+  overflow: hidden;
+  margin: 0 20rpx;
+}
+
+.dim-bar-inner {
+  height: 100%;
+  background: #6b7a4f;
+  border-radius: 999rpx;
+}
+
+.dim-score {
+  width: 140rpx;
+  font-size: 26rpx;
+  text-align: right;
+}
+
+.dim-grade {
+  color: #8a8577;
+  font-size: 22rpx;
+}
+
+.issue-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.issue-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.issue-sev {
+  font-size: 22rpx;
+  color: #b3543f;
+  border: 2rpx solid #b3543f;
+  border-radius: 999rpx;
+  padding: 2rpx 16rpx;
+}
+
+.issue-block {
+  font-size: 26rpx;
+  color: #5a5546;
+  margin-top: 10rpx;
+}
+
+.cond-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 12rpx 0;
+  border-bottom: 2rpx solid #f0ebe0;
+}
+
+.cond-name {
+  font-size: 28rpx;
+}
+
+.cond-sev {
+  font-size: 22rpx;
+  color: #b3543f;
+}
+
+.zone {
+  display: flex;
+  gap: 24rpx;
+  padding: 16rpx 0;
+  border-bottom: 2rpx solid #f0ebe0;
+}
+
+.zone-label {
+  width: 120rpx;
+  font-weight: 600;
+  font-size: 26rpx;
+}
+
+.zone-body {
+  flex: 1;
+  font-size: 26rpx;
+  color: #5a5546;
+}
+
+.strength {
+  padding: 8rpx 0;
+  color: #5a5546;
+}
+
+.p-name {
+  font-weight: 600;
+}
+
+.p-reason {
+  margin-top: 8rpx;
+}
+
+.p-price {
+  margin-top: 12rpx;
+  color: #b3543f;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+
+.action {
+  flex: 1;
+  font-size: 26rpx;
+  padding: 20rpx 0;
+}
+
+.radar-card {
+  display: flex;
+  justify-content: center;
+}
+
+.radar-canvas {
+  width: 320px;
+  height: 320px;
+}
+
+.poster-canvas {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  width: 360px;
+  height: 480px;
+}
+
+.p-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+
+.p-btn {
+  font-size: 24rpx;
+  padding: 10rpx 28rpx;
+  border-radius: 999rpx;
+  background: #f0ebe0;
+  color: #3D4430;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.p-btn-primary {
+  background: #3D4430;
+  color: #F2EDE5;
+}
+
+.home {
+  text-align: center;
+  padding: 40rpx 0;
+}

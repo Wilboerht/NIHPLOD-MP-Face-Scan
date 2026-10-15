@@ -1,0 +1,58 @@
+<view class="container">
+  <!-- 测肤次数预检拦截（对齐 H5 questions 页：登录引导 / 终身次数用完 / 今日次数用完） -->
+  <view wx:if="{{limitBlocked}}" class="state limit-block">
+    <view class="limit-title">{{limitTitle}}</view>
+    <view class="limit-message text-muted">{{limitMessage}}</view>
+    <button wx:if="{{limitRequireLogin}}" class="btn-primary limit-btn" bindtap="onGoLogin">去登录</button>
+    <button class="btn-plain limit-btn" bindtap="onBackHome">返回首页</button>
+  </view>
+
+  <view wx:elif="{{loading}}" class="state text-muted">题目加载中…</view>
+
+  <view wx:elif="{{loadError}}" class="state">
+    <view class="text-muted">{{loadError}}</view>
+    <button class="btn-plain retry" bindtap="fetchQuestions">重新加载</button>
+  </view>
+
+  <!-- 第 0 步：性别选择（H5 在拍摄页选择，小程序前置到问卷开头；写入 answers.gender） -->
+  <block wx:elif="{{phase === 'gender'}}">
+    <view class="q-title">你的性别是？</view>
+    <view class="q-subtext text-muted">用于生成更准确的肤质分析与报告</view>
+    <view class="options">
+      <view class="option" data-value="female" bindtap="onGenderTap">
+        <view class="option-label">女</view>
+      </view>
+      <view class="option" data-value="male" bindtap="onGenderTap">
+        <view class="option-label">男</view>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{question}}">
+    <view class="progress text-muted">{{current + 1}} / {{visibleQuestions.length}}</view>
+
+    <view class="q-title">{{question.question}}</view>
+    <view class="q-subtext text-muted" wx:if="{{question.subtext}}">{{question.subtext}}</view>
+
+    <view class="options">
+      <view
+        wx:for="{{displayOptions}}"
+        wx:key="value"
+        class="option {{item.checked ? 'option-active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="{{question.type === 'multiple' ? 'onMultiTap' : 'onSingleTap'}}"
+      >
+        <view class="option-label">{{item.label}}</view>
+        <view class="option-desc text-muted" wx:if="{{item.description}}">{{item.description}}</view>
+      </view>
+    </view>
+
+    <button wx:if="{{question.type === 'multiple'}}" class="btn-primary next-btn" bindtap="onMultiConfirm">
+      {{current + 1 === visibleQuestions.length ? '完成' : '下一题'}}
+    </button>
+
+    <view class="prev text-muted" bindtap="onPrev">上一题</view>
+  </block>
+
+  <view wx:else class="state text-muted">暂无题目</view>
+</view>

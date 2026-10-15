@@ -1,0 +1,25 @@
+<view class="container login-page">
+  <view class="logo-area">
+    <view class="logo">肌智派</view>
+    <view class="tip">登录后可保存测肤报告、查看历史记录</view>
+  </view>
+
+  <button wx:if="{{!needBinding}}" class="btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">
+    微信一键登录
+  </button>
+
+  <!-- 新用户：微信无匹配账号，需一键绑定手机号完成注册（免短信，getPhoneNumber 直验） -->
+  <block wx:if="{{needBinding}}">
+    <view class="bind-tip">
+      <view class="bind-title">还差一步</view>
+      <view class="bind-desc">首次使用需要绑定手机号，用于保存你的测肤档案</view>
+    </view>
+    <button class="btn-primary" loading="{{loading}}" disabled="{{loading}}" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber">
+      手机号一键绑定
+    </button>
+  </block>
+
+  <view class="text-muted protocol">
+    登录即代表你同意《用户协议》与《隐私政策》
+  </view>
+</view>

@@ -1,0 +1,30 @@
+<!-- 自绘导航栏（index.json navigationStyle: custom）：顶部栏展示 logo -->
+<view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+  <image class="nav-logo" src="/images/nihplod-logo.svg" mode="aspectFit" />
+</view>
+
+<view class="container">
+  <view class="hero">
+    <view class="brand">肌智派</view>
+    <view class="slogan">AI 智能测肤 · 一张照片读懂你的肌肤</view>
+    <view class="desc">十维肌肤评分 · 分区问题定位 · 个性化护肤方案</view>
+  </view>
+
+  <button class="btn-primary start-btn" bindtap="onStart">开始测肤</button>
+
+  <view class="history-entry" bindtap="onGoHistory">
+    <text>查看历史报告</text>
+    <text class="arrow">›</text>
+  </view>
+
+  <view class="hello" wx:if="{{isLoggedIn && user}}">
+    <text class="text-muted">你好，{{user.name || '护肤达人'}}</text>
+    <text class="edit-link" bindtap="onEditProfile">编辑</text>
+  </view>
+
+  <view class="logout-entry text-muted" wx:if="{{isLoggedIn}}" bindtap="onLogout">
+    退出登录
+  </view>
+
+  <privacy-popup visible="{{showPrivacy}}" bind:agree="onAgreePrivacy" bind:disagree="onDisagreePrivacy" />
+</view>
