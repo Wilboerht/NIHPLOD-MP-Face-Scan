@@ -8,6 +8,15 @@ module.exports = {
   // OAuth public client（无 secret）
   MP_CLIENT_ID: 'wechat-mp-skin',
 
+  // 订阅消息模板 ID（微信公众平台申请后填入；留空自动跳过订阅请求，功能静默降级）
+  //   REPORT_READY    报告完成通知（公共模板库「检测报告生成提醒」：thing1=服务名称 / thing2=温馨提示 / time3=完结时间）
+  //   RETEST_REMINDER 复测提醒（公共模板库「打卡提醒」：thing1=活动名称 / thing2=温馨提示 / time3=提醒时间；
+  //                   与报告完成同一次授权弹窗一起勾选；发送侧：官网 cron 每日扫描「上次测肤满 30 天」用户）
+  SUBSCRIBE_TEMPLATES: {
+    REPORT_READY: 'BMlKM4BcD4loHeWmHiT1ktvK3sugpDQaQNm2cLAZocI',
+    RETEST_REMINDER: 'eWR6LRZzF8sgcxkxCbqgHbtWVnbBlfzpSi8lVLQ6tZ8',
+  },
+
   // 隐私协议版本：随 analyze 请求上报 privacyConsent
   PRIVACY_VERSION: 'mp-1.0',
 

@@ -1,4 +1,5 @@
 var auth = require('../../utils/auth.js');
+var subscribe = require('../../utils/subscribe.js');
 
 Page({
   data: {
@@ -44,7 +45,11 @@ Page({
       wx.navigateTo({ url: '/pages/login/login' });
       return;
     }
-    wx.navigateTo({ url: '/pages/questionnaire/questionnaire' });
+    // 订阅「报告完成通知」（接近分析流程起点，且处于用户点击调用栈内；
+    // 未配置模板 / 用户拒绝均不阻断，分析完成后由服务端推送）
+    subscribe.requestSubscription(function () {
+      wx.navigateTo({ url: '/pages/questionnaire/questionnaire' });
+    });
   },
 
   onGoHistory: function () {
