@@ -3,6 +3,7 @@ var request = require('../../utils/request.js').request;
 var util = require('../../utils/util.js');
 var poster = require('../../utils/poster.js');
 var radar = require('../../utils/radar.js');
+var ingredients = require('../../utils/ingredients.js');
 
 var KEYS = config.STORAGE_KEYS;
 
@@ -19,6 +20,22 @@ var AFFILIATE_ORDER = [
   { key: 'douyin', label: '抖音' },
   { key: 'xiaohongshu', label: '小红书' },
 ];
+
+// 展示用纯文本兜底：
+// - 剥离 HTML 标签（服务端已用 DOMPurify 剥过全量标签，此处再兜历史缓存/脏数据一层）；
+//   只匹配形如 <p>/</p>/<br/> 的标签，不会误伤「用量<1ml」这类数学比较
+// - 解码服务端 DOMPurify 留下的常见实体（裸 < 会被存成 &lt;，纯文本直出会显示原文）
+function plainText(text) {
+  if (typeof text !== 'string') return '';
+  return text
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .trim();
+}
 
 Page({
   data: {
@@ -350,14 +367,29 @@ Page({
       var abs = util.absUrl(u || '');
       if (abs && gallery.indexOf(abs) === -1) gallery.push(abs);
     });
+    // 成分名称规范化（与 H5 ingredient-glossary 同源映射，如「玻尿酸」→「玻尿酸（透明质酸钠）」）
+    var keyIngredients = (Array.isArray(p.keyIngredients) ? p.keyIngredients : []).map(function (name) {
+      return plainText(ingredients.getIngredientTitle(name));
+    });
+    // 社交证明（仅算法补足商品携带；门槛与 H5 卡片一致 ≥10%）
+    var socialProofText = '';
+    if (p.socialProof && p.socialProof.label &&
+        typeof p.socialProof.affinity === 'number' && p.socialProof.affinity >= 10) {
+      socialProofText = p.socialProof.label + ' · ' + p.socialProof.affinity + '%';
+    }
+    var benefits = Array.isArray(p.benefits) ? p.benefits : [];
     return Object.assign({}, p, {
       showShop: !!config.WECHAT_SHOP.appid, // 待小店后台获取 appid 后自动显示
       copyText: copyText,
       copyLabel: copyLabel,
       displayImage: image,
       galleryImages: gallery,
-      benefitsText: Array.isArray(p.benefits) ? p.benefits.join('、') : '',
-      keyIngredients: Array.isArray(p.keyIngredients) ? p.keyIngredients : [],
+      reason: plainText(p.reason),
+      descriptionText: plainText(p.description),
+      howToUse: plainText(p.howToUse),
+      benefitsText: benefits.map(plainText).filter(Boolean).join('、'),
+      keyIngredients: keyIngredients,
+      socialProofText: socialProofText,
       searchKeyword: p.category ? 'nihplod ' + p.category : '',
     });
   },

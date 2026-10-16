@@ -169,6 +169,15 @@
   font-weight: 600;
 }
 
+.p-benefits {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #C8A97E;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .p-reason {
   margin-top: 8rpx;
   overflow: hidden;
@@ -176,6 +185,16 @@
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+
+.p-proof {
+  display: inline-block;
+  margin-top: 10rpx;
+  font-size: 20rpx;
+  color: #8B7355;
+  background: #f0ede1;
+  border-radius: 999rpx;
+  padding: 4rpx 16rpx;
 }
 
 .p-price-row {
@@ -363,6 +382,12 @@
   font-size: 28rpx;
   color: #5a5546;
   line-height: 1.7;
+}
+
+/* 保留纯文本换行（产品介绍等内容来自 textarea 多行输入） */
+.pd-pre {
+  white-space: pre-line;
+  word-break: break-all;
 }
 
 .pd-search {

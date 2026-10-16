@@ -88,7 +88,9 @@
         <image wx:if="{{p.displayImage}}" class="p-thumb" src="{{p.displayImage}}" mode="aspectFill" lazy-load />
         <view class="p-body">
           <view class="p-name">{{p.name}}</view>
+          <view class="p-benefits" wx:if="{{p.benefitsText}}">{{p.benefitsText}}</view>
           <view class="p-reason text-muted" wx:if="{{p.reason}}">{{p.reason}}</view>
+          <view class="p-proof" wx:if="{{p.socialProofText}}">★ {{p.socialProofText}}</view>
           <view class="p-price-row">
             <view class="p-price" wx:if="{{p.price}}">¥{{p.price}}</view>
             <view class="p-detail-hint">查看详情 ›</view>
@@ -137,6 +139,11 @@
           <view class="pd-name">{{detailProduct.name}}</view>
           <view class="pd-price" wx:if="{{detailProduct.price}}">¥{{detailProduct.price}}</view>
           <view class="pd-reason" wx:if="{{detailProduct.reason}}">{{detailProduct.reason}}</view>
+
+          <view class="pd-section" wx:if="{{detailProduct.descriptionText}}">
+            <view class="pd-sec-title">产品介绍</view>
+            <view class="pd-text pd-pre">{{detailProduct.descriptionText}}</view>
+          </view>
 
           <view class="pd-section" wx:if="{{detailProduct.keyIngredients.length > 0}}">
             <view class="pd-sec-title">核心成分</view>
