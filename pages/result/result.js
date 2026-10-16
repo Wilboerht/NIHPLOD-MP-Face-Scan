@@ -38,6 +38,9 @@ Page({
     zoneList: [],        // [{label, condition, advice}]
     conditions: [],      // faceAnalysis.skinConditions
     products: [],
+    // 产品详情弹层（对齐 H5 ProductDetailModal）
+    detailOpen: false,
+    detailProduct: null,
   },
 
   onLoad: function (options) {
@@ -226,14 +229,9 @@ Page({
     var face = r.faceAnalysis || {};
     var gender = answers.gender || (face.gender && face.gender.value) || 'female';
 
-    // 建议最多 2 条：优先顾问报告护理方案，无则用肌肤优势
-    var advice = [];
-    (r.consultantReport && r.consultantReport.issues || []).forEach(function (i) {
-      if (advice.length < 2 && i.skincarePlan) advice.push(i.skincarePlan);
-    });
-    if (!advice.length && Array.isArray(r.consultantReport && r.consultantReport.strengths)) {
-      advice = r.consultantReport.strengths.slice(0, 2);
-    }
+    // 建议：与 H5 证书完全一致——取该派系 m7 建议前 2 条标题（内嵌于 utils/poster.js，
+    // 不再用顾问报告长句：长句会被 fitText 截断，与 H5 观感不一致）
+    var advice = poster.getPersonaAdvice(r.persona || 'guardian');
 
     // 百分位：公共服务，失败/无数据则不叠加
     var percentilePromise = typeof self.data.overallScore === 'number'
@@ -259,7 +257,21 @@ Page({
     });
   },
 
+  // 保存证书入口：先选版式（标准版含二维码 / 分享版无二维码），与 H5 CertVariantPicker 交互一致
   onSavePoster: function () {
+    var self = this;
+    if (self._posterBusy) return;
+    wx.showActionSheet({
+      itemList: ['标准版（含评分与二维码）', '分享版（无二维码，适合小红书）'],
+      success: function (res) {
+        var variant = res.tapIndex === 1 ? 'noqr' : 'qr';
+        self.generateAndSavePoster(variant);
+      },
+      fail: function () {}, // 用户取消：不生成
+    });
+  },
+
+  generateAndSavePoster: function (variant) {
     var self = this;
     if (self._posterBusy) return;
     self._posterBusy = true;
@@ -268,7 +280,7 @@ Page({
     self.initPosterCanvas()
       .then(function (canvas) {
         return self.buildPosterInput().then(function (input) {
-          return poster.generatePoster(canvas, input);
+          return poster.generatePoster(canvas, input, variant);
         });
       })
       .then(function (tempFilePath) {
@@ -310,7 +322,9 @@ Page({
   // 任务 2：购买渠道
   // --------------------------------------------------------------------------
 
-  // 产品卡片附加购买字段：微信小店按钮（appid 未配置则隐藏）+ 渠道口令
+  // 产品卡片附加字段：
+  // - 购买渠道：微信小店按钮（appid 未配置则隐藏）+ 天猫/抖音/小红书复制链接
+  // - 详情弹层数据：主图+图库（相对路径补子站域名）、功效/成分/用法展示字段
   // 注意：H5 产品 affiliateLinks 字段（taobao/douyin/xiaohongshu）存的是 http(s) 链接，
   // 尚无文字口令字段；本期复制的是链接（复制后打开对应 App 可被识别为分享口令样式文本）
   decorateProduct: function (p) {
@@ -327,10 +341,54 @@ Page({
         }
       }
     }
+    // 主图 + 图库合并去重（相对路径按子站资产补 https://smart.nihplod.cn）
+    var image = util.absUrl(p.image || '');
+    var images = Array.isArray(p.images) ? p.images : [];
+    var gallery = [];
+    if (image) gallery.push(image);
+    images.forEach(function (u) {
+      var abs = util.absUrl(u || '');
+      if (abs && gallery.indexOf(abs) === -1) gallery.push(abs);
+    });
     return Object.assign({}, p, {
       showShop: !!config.WECHAT_SHOP.appid, // 待小店后台获取 appid 后自动显示
       copyText: copyText,
       copyLabel: copyLabel,
+      displayImage: image,
+      galleryImages: gallery,
+      benefitsText: Array.isArray(p.benefits) ? p.benefits.join('、') : '',
+      keyIngredients: Array.isArray(p.keyIngredients) ? p.keyIngredients : [],
+      searchKeyword: p.category ? 'nihplod ' + p.category : '',
+    });
+  },
+
+  // --------------------------------------------------------------------------
+  // 产品详情弹层
+  // --------------------------------------------------------------------------
+
+  onOpenProduct: function (e) {
+    var index = Number(e.currentTarget.dataset.index);
+    var product = this.data.products[index];
+    if (!product) return;
+    this.setData({ detailOpen: true, detailProduct: product });
+  },
+
+  onCloseDetail: function () {
+    this.setData({ detailOpen: false, detailProduct: null });
+  },
+
+  noop: function () {},
+
+  // 详情弹层「去小红书了解更多」：小程序无法直接唤起小红书，复刻 H5 搜索词并引导手动搜索
+  onCopySearchKeyword: function () {
+    var product = this.data.detailProduct;
+    var keyword = product && product.searchKeyword;
+    if (!keyword) return;
+    wx.setClipboardData({
+      data: keyword,
+      success: function () {
+        wx.showToast({ title: '已复制搜索词，打开小红书搜索', icon: 'none' });
+      },
     });
   },
 

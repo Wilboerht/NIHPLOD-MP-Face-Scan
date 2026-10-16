@@ -83,19 +83,27 @@
 
     <!-- 推荐产品 -->
     <view class="section-title" wx:if="{{products.length}}">为你推荐</view>
-    <view class="card product" wx:for="{{products}}" wx:key="id" wx:for-item="p">
-      <view class="p-name">{{p.name}}</view>
-      <view class="p-reason text-muted" wx:if="{{p.reason}}">{{p.reason}}</view>
-      <view class="p-price" wx:if="{{p.price}}">¥{{p.price}}</view>
+    <view class="card product" wx:for="{{products}}" wx:key="id" wx:for-item="p" wx:for-index="pi">
+      <view class="p-main" data-index="{{pi}}" bindtap="onOpenProduct">
+        <image wx:if="{{p.displayImage}}" class="p-thumb" src="{{p.displayImage}}" mode="aspectFill" lazy-load />
+        <view class="p-body">
+          <view class="p-name">{{p.name}}</view>
+          <view class="p-reason text-muted" wx:if="{{p.reason}}">{{p.reason}}</view>
+          <view class="p-price-row">
+            <view class="p-price" wx:if="{{p.price}}">¥{{p.price}}</view>
+            <view class="p-detail-hint">查看详情 ›</view>
+          </view>
+        </view>
+      </view>
       <view class="p-actions">
-        <button wx:if="{{p.showShop}}" class="p-btn p-btn-primary" data-id="{{p.id}}" bindtap="onBuyShop">微信小店购买</button>
-        <button wx:if="{{p.copyText}}" class="p-btn" data-copy="{{p.copyText}}" data-label="{{p.copyLabel}}" bindtap="onCopyCommand">复制口令购买</button>
+        <button wx:if="{{p.showShop}}" class="p-btn p-btn-primary" catchtap="onBuyShop">微信小店购买</button>
+        <button wx:if="{{p.copyText}}" class="p-btn" data-copy="{{p.copyText}}" data-label="{{p.copyLabel}}" catchtap="onCopyCommand">复制口令购买</button>
       </view>
     </view>
 
-    <!-- 操作区：海报/分享 -->
+    <!-- 操作区：证书/分享 -->
     <view class="actions">
-      <button class="btn-plain action" bindtap="onSavePoster">保存海报</button>
+      <button class="btn-plain action" bindtap="onSavePoster">保存测肤证书</button>
       <button class="btn-plain action" open-type="share">分享给朋友</button>
     </view>
 
@@ -104,4 +112,57 @@
     <!-- 海报离屏画布（1440×1920 缓冲，移出可视区） -->
     <canvas type="2d" id="posterCanvas" class="poster-canvas"></canvas>
   </block>
+
+  <!-- 产品详情弹层（对齐 H5 ProductDetailModal：图库/名称/价格/推荐理由/成分/功效/用法/购买） -->
+  <view class="sheet-mask" wx:if="{{detailOpen && detailProduct}}" bindtap="onCloseDetail" catchtouchmove="noop">
+    <view class="sheet" catchtap="noop">
+      <view class="pd-close" bindtap="onCloseDetail">✕</view>
+
+      <swiper
+        wx:if="{{detailProduct.galleryImages.length > 0}}"
+        class="pd-swiper"
+        indicator-dots="{{detailProduct.galleryImages.length > 1}}"
+        indicator-color="rgba(0,0,0,0.15)"
+        indicator-active-color="#3D4430"
+        circular
+      >
+        <swiper-item wx:for="{{detailProduct.galleryImages}}" wx:key="*this">
+          <image class="pd-image" src="{{item}}" mode="aspectFit" lazy-load />
+        </swiper-item>
+      </swiper>
+
+      <scroll-view scroll-y class="pd-scroll">
+        <view class="pd-body">
+          <view class="pd-cat" wx:if="{{detailProduct.category}}">{{detailProduct.category}}</view>
+          <view class="pd-name">{{detailProduct.name}}</view>
+          <view class="pd-price" wx:if="{{detailProduct.price}}">¥{{detailProduct.price}}</view>
+          <view class="pd-reason" wx:if="{{detailProduct.reason}}">{{detailProduct.reason}}</view>
+
+          <view class="pd-section" wx:if="{{detailProduct.keyIngredients.length > 0}}">
+            <view class="pd-sec-title">核心成分</view>
+            <view class="pd-ing" wx:for="{{detailProduct.keyIngredients}}" wx:key="*this">· {{item}}</view>
+          </view>
+
+          <view class="pd-section" wx:if="{{detailProduct.benefitsText}}">
+            <view class="pd-sec-title">主要功效</view>
+            <view class="pd-text">{{detailProduct.benefitsText}}</view>
+          </view>
+
+          <view class="pd-section" wx:if="{{detailProduct.howToUse}}">
+            <view class="pd-sec-title">使用方法</view>
+            <view class="pd-text">{{detailProduct.howToUse}}</view>
+          </view>
+
+          <view class="pd-search" wx:if="{{detailProduct.searchKeyword}}" bindtap="onCopySearchKeyword">
+            去小红书了解更多（复制搜索词） ›
+          </view>
+
+          <view class="pd-actions">
+            <button wx:if="{{detailProduct.showShop}}" class="p-btn p-btn-primary" catchtap="onBuyShop">微信小店购买</button>
+            <button wx:if="{{detailProduct.copyText}}" class="p-btn" data-copy="{{detailProduct.copyText}}" data-label="{{detailProduct.copyLabel}}" catchtap="onCopyCommand">复制口令购买</button>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
 </view>
