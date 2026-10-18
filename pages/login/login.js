@@ -38,6 +38,22 @@ Page({
     });
   },
 
+  onOpenPrivacy: function () {
+    if (wx.openPrivacyContract) {
+      wx.openPrivacyContract({
+        fail: function () {
+          wx.navigateTo({ url: '/pages/legal/legal?type=privacy' });
+        },
+      });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/legal/legal?type=privacy' });
+  },
+
+  onOpenTerms: function () {
+    wx.navigateTo({ url: '/pages/legal/legal?type=terms' });
+  },
+
   // 手机号一键绑定（getPhoneNumber 按钮回调）
   onGetPhoneNumber: function (e) {
     var self = this;

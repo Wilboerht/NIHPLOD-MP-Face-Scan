@@ -1,10 +1,11 @@
 // 用户中心（原「编辑资料」页升级）：头像/昵称/性别/生日 + 手机号/密码/收货地址入口 + 会员用量
 // 资料读写直连主站 OAuth userinfo（Bearer）；手机号/密码/地址在子页面操作
+var config = require('../../config.js');
 var request = require('../../utils/request.js').request;
 var auth = require('../../utils/auth.js');
 var util = require('../../utils/util.js');
 var account = require('../../utils/account.js');
-var uploadImage = require('../../utils/upload.js').uploadImage;
+var uploadAvatar = require('../../utils/upload.js').uploadAvatar;
 
 // 会员等级文案（对齐 H5 member-badges.ts；历史值 ADVANCED 服务端已归一为 GOLD，保留兜底）
 var VIP_LEVEL_LABELS = {
@@ -180,7 +181,7 @@ Page({
     });
   },
 
-  // 头像：chooseAvatar → 上传 OSS → PUT userinfo
+  // 头像：chooseAvatar → 主站 /api/oauth/userinfo/avatar → PUT userinfo
   onChooseAvatar: function (e) {
     var self = this;
     var path = e.detail.avatarUrl;
@@ -188,7 +189,7 @@ Page({
     this._saving = true;
     this.setData({ saving: true, displayAvatar: path });
     wx.showLoading({ title: '上传中…', mask: true });
-    uploadImage(path, 'avatar').then(function (url) {
+    uploadAvatar(path).then(function (url) {
       return account.updateProfile({ avatar: url }).then(function () {
         wx.hideLoading();
         self._saving = false;
@@ -325,6 +326,22 @@ Page({
 
   onGoArchive: function () {
     wx.navigateTo({ url: '/pages/archive/archive' });
+  },
+
+  onGoPointsMall: function () {
+    var points = config.POINTS_MP || {};
+    if (!points.appid) return;
+    wx.navigateToMiniProgram({
+      appId: points.appid,
+      path: points.path || undefined,
+      fail: function () {
+        wx.showToast({ title: '打开积分商城失败，请稍后重试', icon: 'none' });
+      },
+    });
+  },
+
+  onGoAccountDeletion: function () {
+    wx.navigateTo({ url: '/pages/account-deletion/account-deletion' });
   },
 
   onLogout: function () {

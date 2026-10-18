@@ -27,6 +27,12 @@ module.exports = {
     itemPath: '',
   },
 
+  // 积分商城小程序（与测肤小程序同一主站账号体系，跳转前需在 app.json 声明 appid）
+  POINTS_MP: {
+    appid: 'wx9fb8f3d1c719c4ed',
+    path: 'pages/home/home',
+  },
+
   // 本地存储 key
   STORAGE_KEYS: {
     ACCESS_TOKEN: 'mp_access_token',
@@ -41,5 +47,6 @@ module.exports = {
     FACE_IMAGE_SIDE_PATHS: 'mp_face_image_side_paths',
     RESULT_PREFIX: 'mp_result_',
     LATEST_SESSION: 'mp_latest_session',
+    PENDING_ANALYSIS: 'mp_pending_analysis',
   },
 };

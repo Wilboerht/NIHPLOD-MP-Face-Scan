@@ -1,0 +1,68 @@
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #3D4430;
+  margin-bottom: 16rpx;
+}
+
+.tip {
+  font-size: 26rpx;
+  color: #5a5546;
+  line-height: 1.7;
+  margin-bottom: 8rpx;
+}
+
+.action-btn {
+  margin-top: 24rpx;
+}
+
+.reason-input {
+  width: 100%;
+  min-height: 160rpx;
+  box-sizing: border-box;
+  padding: 20rpx;
+  border-radius: 16rpx;
+  background: #F7F4EE;
+  font-size: 26rpx;
+  color: #3D4430;
+}
+
+.confirm-label {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 24rpx;
+}
+
+.confirm-text {
+  margin-left: 12rpx;
+  font-size: 26rpx;
+  color: #5a5546;
+  line-height: 1.6;
+}
+
+.contact-btn {
+  margin-top: 20rpx;
+}
+
+.error-card {
+  color: #b4553f;
+  font-size: 26rpx;
+}
+
+.retry-btn {
+  margin-top: 20rpx;
+}
+
+.link {
+  color: #6b7a4f;
+  text-decoration: underline;
+}
+
+.state {
+  padding: 80rpx 0;
+  text-align: center;
+}
+
+.login-btn {
+  margin-top: 24rpx;
+}

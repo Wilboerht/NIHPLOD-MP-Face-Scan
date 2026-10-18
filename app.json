@@ -11,7 +11,12 @@
     "pages/profile/profile",
     "pages/phone-rebind/phone-rebind",
     "pages/password/password",
-    "pages/addresses/addresses"
+    "pages/addresses/addresses",
+    "pages/account-deletion/account-deletion",
+    "pages/legal/legal"
+  ],
+  "navigateToMiniProgramAppIdList": [
+    "wx9fb8f3d1c719c4ed"
   ],
   "window": {
     "navigationBarBackgroundColor": "#F2EDE5",

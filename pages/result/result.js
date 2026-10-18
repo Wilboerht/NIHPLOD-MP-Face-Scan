@@ -89,7 +89,8 @@ Page({
       showError: false,
     }).then(function (res) {
       if (res.status === 'completed' && res.rawResult) {
-        wx.setStorageSync(KEYS.RESULT_PREFIX + sessionId, res.rawResult);
+        // 缓存失败（存储配额满）不应影响报告展示
+        try { wx.setStorageSync(KEYS.RESULT_PREFIX + sessionId, res.rawResult); } catch (e) {}
         self.renderResult(res.rawResult);
       } else if (res.status === 'completed' && res.result) {
         self.renderResult(res.result);

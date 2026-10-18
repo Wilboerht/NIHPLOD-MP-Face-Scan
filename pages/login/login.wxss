@@ -24,6 +24,10 @@
   margin-top: 40rpx;
 }
 
+.protocol-link {
+  color: #6b7a4f;
+}
+
 .bind-tip {
   text-align: center;
   margin-bottom: 48rpx;

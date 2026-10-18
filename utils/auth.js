@@ -42,6 +42,8 @@ function saveSession(data) {
   }
   wx.setStorageSync(KEYS.NEED_BINDING, !!data.needBinding);
   if (data.bindToken) wx.setStorageSync('mp_bind_token', data.bindToken);
+  // 绑定完成/已绑定账号登录后清理一次性 bindToken，避免长期滞留
+  if (!data.needBinding) wx.removeStorageSync('mp_bind_token');
 }
 
 /**
@@ -54,7 +56,7 @@ function login() {
       base: 'official',
       url: '/api/auth/wechat/miniprogram-login',
       method: 'POST',
-      data: { code: code },
+      data: { code: code, clientId: config.MP_CLIENT_ID },
       timeout: 30000,
     });
   }).then(function (res) {
@@ -86,7 +88,7 @@ function bindPhoneAndLogin(phoneCode) {
       base: 'official',
       url: '/api/auth/wechat/miniprogram-login',
       method: 'POST',
-      data: { code: code, phoneCode: phoneCode },
+      data: { code: code, phoneCode: phoneCode, clientId: config.MP_CLIENT_ID },
       timeout: 30000,
     });
   }).then(function (res) {
@@ -159,6 +161,7 @@ function clearSession() {
   wx.removeStorageSync(KEYS.ANSWERS);
   wx.removeStorageSync(KEYS.SKIN_STATE);
   wx.removeStorageSync(KEYS.LATEST_SESSION);
+  wx.removeStorageSync(KEYS.PENDING_ANALYSIS);
   try {
     var keys = wx.getStorageInfoSync().keys || [];
     for (var i = 0; i < keys.length; i++) {

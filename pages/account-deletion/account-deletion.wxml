@@ -1,0 +1,81 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="state text-muted">加载中…</view>
+
+  <block wx:elif="{{loggedIn}}">
+    <block wx:if="{{request}}">
+      <view class="card">
+        <view class="card-title">注销申请处理中</view>
+        <view class="tip">将于 {{request.scheduledText}} 生效（剩余 {{request.remainingDays}} 天）</view>
+        <view wx:if="{{request.status === 'PENDING'}}" class="tip text-muted">
+          冷静期内账号可正常使用、可随时撤回；生效后账号不可恢复。
+        </view>
+        <view wx:else class="tip text-muted">注销正在执行中，完成后账号将不可恢复。</view>
+        <button
+          wx:if="{{request.status === 'PENDING'}}"
+          class="btn-primary action-btn"
+          loading="{{submitting}}"
+          disabled="{{submitting}}"
+          bindtap="withdraw"
+        >撤回注销申请</button>
+      </view>
+
+      <view wx:if="{{warnings.length > 0}}" class="card">
+        <view class="card-title">请注意</view>
+        <view wx:for="{{warnings}}" wx:key="*this" class="tip text-muted">· {{item}}</view>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="card">
+        <view class="card-title">注销前须知</view>
+        <view class="tip text-muted">· 提交申请后设有冷静期（默认 7 天），期间账号可正常使用，并可随时撤回。</view>
+        <view class="tip text-muted">· 注销生效后不可恢复：未使用的积分、会员权益与未履约的兑换记录将作废。</view>
+        <view class="tip text-muted">· 所有已授权平台将退出登录，个人资料将被删除或匿名化处理。</view>
+      </view>
+
+      <view class="card">
+        <view class="card-title">注销原因（选填）</view>
+        <textarea
+          class="reason-input"
+          value="{{reason}}"
+          maxlength="500"
+          placeholder="帮助我们了解注销原因"
+          bindinput="onReasonInput"
+        />
+      </view>
+
+      <view class="card">
+        <checkbox-group bindchange="onConfirmChange">
+          <label class="confirm-label">
+            <checkbox value="confirm" checked="{{confirmed}}" color="#b4553f" />
+            <text class="confirm-text">我已阅读并理解上述后果，自愿申请注销账号</text>
+          </label>
+        </checkbox-group>
+        <button
+          class="btn-primary action-btn"
+          loading="{{submitting}}"
+          disabled="{{submitting || !confirmed}}"
+          bindtap="submit"
+        >申请注销账号</button>
+      </view>
+    </block>
+
+    <view class="card">
+      <view class="card-title">无法自行办理？</view>
+      <view class="tip text-muted">
+        · 可发起客服会话，或邮件至 {{email}}（<text class="link" bindtap="copyEmail">复制</text>）。
+      </view>
+      <button class="btn-plain contact-btn" open-type="contact">联系客服协助注销</button>
+    </view>
+  </block>
+
+  <view wx:else class="card state">
+    <view class="text-muted">登录后管理账号注销</view>
+    <button class="btn-primary login-btn" bindtap="goLogin">去登录</button>
+  </view>
+
+  <view wx:if="{{error}}" class="card error-card">
+    <view>{{error}}</view>
+    <button class="btn-plain retry-btn" bindtap="load">重试</button>
+  </view>
+</view>

@@ -11,7 +11,7 @@
   <block wx:else>
     <view class="error-icon">!</view>
     <view class="error-text">{{error}}</view>
-    <button class="btn-primary retry-btn" bindtap="onRetry">重试</button>
+    <button class="btn-primary retry-btn" loading="{{running}}" disabled="{{running}}" bindtap="onRetry">重试</button>
     <button class="btn-plain back-btn" bindtap="onBack">返回重拍</button>
   </block>
 </view>

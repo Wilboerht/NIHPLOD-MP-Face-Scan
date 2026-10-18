@@ -2,28 +2,50 @@ var config = require('../../config.js');
 var request = require('../../utils/request.js').request;
 var uuid = require('../../utils/uuid.js').uuid;
 var util = require('../../utils/util.js');
+var auth = require('../../utils/auth.js');
 
 var KEYS = config.STORAGE_KEYS;
 var POLL_INTERVAL_MS = 3000;   // 与 H5 useAsyncAnalysis 一致：3s × 60 = 180s 总轮询
 var POLL_MAX_ATTEMPTS = 60;
+// 失败会话保留窗口：同一份答案 + 同一张照片在窗口内重试复用 sessionId，
+// 服务端按 sessionId 复用 TestRecord 预占，不重复扣测肤次数/AI 调用
+var PENDING_TTL_MS = 30 * 60 * 1000;
+
+// 稳定序列化：答案对象 key 顺序不影响指纹
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
+  return '{' + Object.keys(value).sort().map(function (key) {
+    return JSON.stringify(key) + ':' + stableStringify(value[key]);
+  }).join(',') + '}';
+}
+
+function buildFingerprint(answers, skinState, faceImagePath) {
+  return stableStringify(answers || {}) + '|' + (skinState || '') + '|' + (faceImagePath || '');
+}
 
 Page({
   data: {
     stageText: '正在准备…',
     progress: 2,
     error: '',
+    running: false,
   },
 
   onLoad: function () {
     this._pollTimer = null;
     this._progressTimer = null;
     this._finished = false;
-    this.startProgress();
+    this._running = false;
+    this._sessionId = '';
+    this._faceAnalysis = null;
+    this._pendingFingerprint = '';
     this.run();
   },
 
   onUnload: function () {
     this._finished = true; // 页面已卸载：防止在途请求回调继续调度轮询
+    this._running = false;
     this.stopTimers();
   },
 
@@ -35,6 +57,7 @@ Page({
   // 模拟进度条：阶段跳变 + 缓慢填充（避免卡在 99%）
   startProgress: function () {
     var self = this;
+    if (this._progressTimer) return;
     this._progressTimer = setInterval(function () {
       var p = self.data.progress;
       var target = self.data.progress < 55 ? 55 : 85;
@@ -44,24 +67,84 @@ Page({
     }, 300);
   },
 
+  // --------------------------------------------------------------------------
+  // 失败会话暂存：退出页面/重试时复用同一个 sessionId 与服务端预占
+  // --------------------------------------------------------------------------
+  loadPending: function (fingerprint) {
+    try {
+      var pending = wx.getStorageSync(KEYS.PENDING_ANALYSIS);
+      if (!pending || !pending.sessionId || pending.fingerprint !== fingerprint) return false;
+      if (Date.now() - (pending.createdAt || 0) > PENDING_TTL_MS) {
+        wx.removeStorageSync(KEYS.PENDING_ANALYSIS);
+        return false;
+      }
+      this._sessionId = pending.sessionId;
+      this._faceAnalysis = pending.faceAnalysis || null;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  savePending: function () {
+    if (!this._sessionId || !this._pendingFingerprint) return;
+    try {
+      wx.setStorageSync(KEYS.PENDING_ANALYSIS, {
+        sessionId: this._sessionId,
+        fingerprint: this._pendingFingerprint,
+        faceAnalysis: this._faceAnalysis || null,
+        createdAt: Date.now(),
+      });
+    } catch (e) {}
+  },
+
+  clearPending: function () {
+    try { wx.removeStorageSync(KEYS.PENDING_ANALYSIS); } catch (e) {}
+  },
+
   run: function () {
     var self = this;
-    this._finished = false;
-    this.setData({ error: '', stageText: '正在准备…', progress: 2 });
+    if (self._running) return;
+    self._running = true;
+    self._finished = false;
+    self.stopTimers();
+    self.setData({ error: '', stageText: '正在准备…', progress: 2, running: true });
+    self.startProgress();
 
     var answers = wx.getStorageSync(KEYS.ANSWERS) || null;
     if (!answers || Object.keys(answers).length === 0) {
-      this.fail('答题数据缺失，请重新填写问卷');
+      self.fail('答题数据缺失，请重新填写问卷');
       return;
     }
 
-    var sessionId = uuid();
-    this._sessionId = sessionId;
     var skinState = wx.getStorageSync(KEYS.SKIN_STATE) || undefined;
     var faceImagePath = wx.getStorageSync(KEYS.FACE_IMAGE_PATH) || '';
+    var fingerprint = buildFingerprint(answers, skinState, faceImagePath);
 
-    this.readImageAsBase64(faceImagePath)
-      .then(function (imageData) {
+    // 同一份答案 + 同一张照片：复用上次失败会话；否则开新会话
+    var reused = false;
+    if (self._sessionId && self._pendingFingerprint === fingerprint) {
+      reused = true;
+    } else if (self.loadPending(fingerprint)) {
+      reused = true;
+    }
+    if (!reused) {
+      self._sessionId = uuid();
+      self._faceAnalysis = null;
+      self.clearPending();
+    }
+
+    var sessionId = self._sessionId;
+    self._pendingFingerprint = fingerprint;
+    self.savePending();
+
+    var facePromise;
+    if (self._faceAnalysis) {
+      // 上一次 face-analyze 已成功：跳过视觉调用，直接用缓存结果继续 analyze
+      self.setData({ stageText: '继续生成专属护肤报告…', progress: 65 });
+      facePromise = Promise.resolve(self._faceAnalysis);
+    } else {
+      facePromise = self.readImageAsBase64(faceImagePath).then(function (imageData) {
         if (!imageData) return null;
         self.setData({ stageText: 'AI 正在分析面部照片…', progress: 25 });
         // POST /api/advisor/face-analyze
@@ -79,10 +162,23 @@ Page({
             images: [{ data: imageData, angle: 'front' }],
             skinState: skinState,
           },
+        }).then(function (faceAnalysis) {
+          self._faceAnalysis = faceAnalysis || null;
+          self.savePending();
+          return faceAnalysis;
         });
-      })
+      });
+    }
+
+    facePromise
       .then(function (faceAnalysis) {
         self.setData({ stageText: '正在生成专属护肤报告…', progress: 65 });
+        // 昵称随 analyze 上报：子站 analyze 会把它写入报告/证书；
+        // 主站昵称上限 20，子站 schema 已同步放宽到 20
+        var user = auth.getUser() || {};
+        var nickname = String(user.name || '').trim();
+        if (nickname.length > 20) nickname = nickname.slice(0, 20);
+
         // POST /api/advisor/analyze（H5 AnalyzeRequestSchema）
         // 202 → 已有同 session 请求在分析中，转轮询 session/status
         return request({
@@ -95,6 +191,7 @@ Page({
             answers: answers,
             faceAnalysis: faceAnalysis || undefined,
             sessionId: sessionId,
+            nickname: nickname || undefined,
             privacyConsent: getApp().getPrivacyConsentPayload() || undefined,
             clientDate: util.clientDateStr(new Date()),
             skinState: skinState,
@@ -107,16 +204,24 @@ Page({
         });
       })
       .then(function (result) {
+        if (self._finished) return;
         if (!result) throw new Error('未获取到分析结果，请重试一次');
+        // 服务端缓存/异步结果可能缺 faceAnalysis，用本次视觉结果补齐（与 H5 一致）
+        if (self._faceAnalysis && !result.faceAnalysis) result.faceAnalysis = self._faceAnalysis;
         result.sessionId = sessionId;
-        wx.setStorageSync(KEYS.RESULT_PREFIX + sessionId, result);
-        wx.setStorageSync(KEYS.LATEST_SESSION, sessionId);
+        // 本地缓存只是加速回看；存储配额满时不能影响成功页跳转
+        try { wx.setStorageSync(KEYS.RESULT_PREFIX + sessionId, result); } catch (e) {}
+        try { wx.setStorageSync(KEYS.LATEST_SESSION, sessionId); } catch (e) {}
+        self.clearPending();
+        self._faceAnalysis = null;
+        self._running = false;
         self._finished = true;
         self.stopTimers();
-        self.setData({ progress: 100, stageText: '分析完成' });
+        self.setData({ progress: 100, stageText: '分析完成', running: false });
         wx.redirectTo({ url: '/pages/result/result?sessionId=' + sessionId });
       })
       .catch(function (err) {
+        if (self._finished) return;
         self.fail((err && err.message) || '分析失败，请重试');
       });
   },
@@ -191,11 +296,14 @@ Page({
   },
 
   fail: function (message) {
+    this._running = false;
     this.stopTimers();
-    this.setData({ error: message, stageText: '分析未完成' });
+    this.setData({ running: false, error: message, stageText: '分析未完成' });
+    this.savePending();
   },
 
   onRetry: function () {
+    if (this._running) return;
     this.run();
   },
 

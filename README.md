@@ -9,29 +9,31 @@
 ## 功能流程
 
 ```
-首页 → 隐私协议同意 → 微信一键登录（新用户绑手机号）
+首页 → 微信官方隐私授权（页面展示时）→ 微信一键登录（新用户绑手机号）
   → 问卷答题（性别前置 + dependsOn 条件题 + 次数限额拦截）
   → 人脸采集（正脸/右转/左转/抬头，VisionKit 自动拍摄）
-  → 图片上传（OSS 签名 + 原始字节 PUT）
+  → 人脸图片 base64 提交 face-analyze（失败重试复用 sessionId，不重复扣次）
   → 提交分析（异步任务，3s 轮询 × 60 = 180s）
   → 测肤报告（雷达图 / 维度明细 / 问题与建议 / 商品推荐 / 证书海报）
   → 历史报告（分页列表 + 详情回看）
+  → 积分商城 / 账号注销入口
 ```
 
 ## 页面
 
 | 页面 | 路径 | 说明 |
 | --- | --- | --- |
-| 首页 | `pages/index` | 自定义导航栏、隐私弹窗、登录态入口 |
+| 首页 | `pages/index` | 自定义导航栏、官方隐私授权、登录态入口 |
 | 登录 | `pages/login` | 微信一键登录；新用户 `getPhoneNumber` 免短信绑手机号 |
 | 问卷 | `pages/questionnaire` | 动态题目、`dependsOn` 条件显示、测肤次数限额拦截 |
 | 拍摄 | `pages/capture` | 四步姿态引导，VisionKit 106 关键点自动检测与拍摄 |
 | 分析中 | `pages/analyzing` | 提交异步分析任务并轮询状态，模拟进度条 |
 | 报告 | `pages/result` | 十维雷达图（canvas 2d）、评分明细、商品推荐、证书海报生成/保存/分享 |
 | 历史 | `pages/history` | 服务端历史报告分页列表，点击回看报告 |
-| 我的 | `pages/profile` | 用户信息编辑 |
-
-组件：`components/privacy-popup`（隐私协议弹窗）
+| 测肤档案 | `pages/archive` | 趋势 / 打卡 / 护肤历程 |
+| 我的 | `pages/profile` | 用户中心：资料 / 手机号 / 密码 / 地址 / 会员用量 / 积分商城 / 账号注销 |
+| 账号注销 | `pages/account-deletion` | 冷静期申请 / 撤回注销 |
+| 法务 | `pages/legal` | 隐私政策 / 用户协议（登录页与首页入口） |
 
 ## 目录结构
 
@@ -39,16 +41,19 @@
 ├── app.js / app.json / app.wxss   # 应用入口、路由与全局样式
 ├── config.js                      # 全局常量（域名、client_id、存储 key、小店占位）
 ├── project.config.json            # 开发者工具项目配置（appid 等）
-├── components/
-│   └── privacy-popup/             # 隐私协议弹窗组件
 ├── images/                        # 静态图片资源
-├── pages/                         # 8 个页面（见上表）
+├── pages/                         # 页面（见上表；含 legal / account-deletion）
 └── utils/
     ├── auth.js                    # 登录 / 绑手机 / token 刷新 / 登出（OAuth public client）
     ├── request.js                 # 统一请求封装：双 base、401 静默刷新重试、错误解析
-    ├── upload.js                  # 图片上传：/api/oss/sign 签名 + PUT 原始字节
+    ├── upload.js                  # 头像走官网 /api/oauth/userinfo/avatar；通用图片 /api/oss/sign + PUT
+    ├── account.js                 # 用户中心共享逻辑（资料 / 换绑 / 密码 / 重新登录）
+    ├── subscribe.js               # 报告完成 / 复测提醒订阅消息
+    ├── legal-text.js              # 隐私政策 / 用户协议简明版文案
     ├── radar.js                   # 十维雷达图绘制（canvas 2d，dpr 适配）
+    ├── trend.js                   # 肌肤趋势折线图（canvas 2d）
     ├── poster.js                  # 证书海报端侧合成（底图 + 动态数据叠加 + 二维码）
+    ├── ingredients.js             # 成分名称规范化
     ├── util.js                    # 维度标签、格式化等公共方法
     └── uuid.js                    # sessionId 生成
 ```
@@ -57,8 +62,8 @@
 
 | 域名 | 用途 |
 | --- | --- |
-| `https://nihplod.cn` | 官网主站：登录（`/api/auth/wechat/miniprogram-login`）、token 刷新（`/api/oauth/token`）、撤销（`/api/oauth/revoke`） |
-| `https://smart.nihplod.cn` | 测肤子站：`questions` / `oss/sign` / `analyze` / `session/status` / `advisor/history` |
+| `https://nihplod.cn` | 官网主站：登录（`/api/auth/wechat/miniprogram-login`）、token 刷新（`/api/oauth/token`）、撤销（`/api/oauth/revoke`）、资料/地址/密码/换绑、头像上传（`/api/oauth/userinfo/avatar`）、账号注销（`/api/oauth/account/deletion`） |
+| `https://smart.nihplod.cn` | 测肤子站：`questions` / `face-analyze` / `analyze` / `session/status` / `advisor/history` / `user/diary` / `user/skin-trends` / `score-percentile` |
 
 鉴权模型：登录拿到 `accessToken` + `refreshToken`，请求层自动注入 `Authorization: Bearer`；token 过期前 5 分钟主动预刷新，401 时静默刷新一次并重试原请求，仅服务端明确拒绝（4xx ≠ 429）才清登录态跳登录页。
 
@@ -66,19 +71,25 @@
 
 1. 用微信开发者工具「导入项目」选择本项目根目录（AppID：`wxb52753aa11ed6654`）
 2. 无需 npm 构建（`nodeModules: false`），直接编译运行
-3. 接口域名需在微信公众平台配置 `request` / `uploadFile` 合法域名（`nihplod.cn`、`smart.nihplod.cn`、OSS 上传域名）
+3. 域名需在微信公众平台配置：
+   - `request`：`https://nihplod.cn`、`https://smart.nihplod.cn`
+   - `uploadFile`：`https://nihplod.cn`（头像上传）
+   - `downloadFile`：`https://smart.nihplod.cn`、`https://nihplod.cn`（证书底图/图片）
 
 ## 配置说明
 
 - `config.js`
   - `OFFICIAL_BASE_URL` / `ADVISORY_BASE_URL`：双后端域名
   - `WECHAT_SHOP`：微信小店 appid 与商品路径，为空时报告页隐藏「小店购买」按钮
+  - `POINTS_MP`：积分商城小程序 appid/path（首页与用户中心入口；需在 `app.json` 的 `navigateToMiniProgramAppIdList` 声明）
   - `PRIVACY_VERSION`：隐私协议版本，随 analyze 请求以上报 `privacyConsent`
+  - `STORAGE_KEYS.PENDING_ANALYSIS`：分析失败会话暂存（重试复用 sessionId，避免重复扣次）
 - `pages/capture/capture.js` 顶部 `CALIBRATION`：真机方向校准开关（`MIRROR_X` / `SWAP_XY`），跨机型适配时调整
 - `project.private.config.json` 为本地私有配置，不入库（见 `.gitignore`）
 
 ## 隐私与数据
 
-- 首次使用需同意隐私协议（设备级存储，与账号无关，登出不清除）
-- 登出会清理：token、用户信息、问卷答案、人脸照片路径、皮肤状态、报告缓存
-- 人脸图片不落地服务端前经 OSS 签名直传，避免 multipart 二次转发
+- 首页展示时由微信官方隐私弹窗完成授权；本地记录版本/时间，随 analyze 请求作为 privacyConsent 审计载荷（设备级存储，与账号无关，登出不清除）
+- 登出会清理：token、用户信息、问卷答案、人脸照片路径、皮肤状态、报告缓存、失败分析暂存
+- 人脸图片在前端压缩后以 base64 提交子站 `face-analyze`；头像走主站 `/api/oauth/userinfo/avatar` 专用上传端点
+- 账号注销：用户中心 → 账号注销，走主站冷静期申请/撤回接口

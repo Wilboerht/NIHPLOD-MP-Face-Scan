@@ -20,6 +20,9 @@
   </block>
 
   <view class="text-muted protocol">
-    登录即代表你同意《用户协议》与《隐私政策》
+    登录即代表你同意
+    <text class="protocol-link" bindtap="onOpenTerms">《用户协议》</text>
+    与
+    <text class="protocol-link" bindtap="onOpenPrivacy">《隐私政策》</text>
   </view>
 </view>

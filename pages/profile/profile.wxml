@@ -103,6 +103,12 @@
       <view class="row-value">{{addressLabel}}</view>
       <view class="arrow">›</view>
     </view>
+    <view class="divider"></view>
+    <view class="row nav" bindtap="onGoAccountDeletion">
+      <view class="row-label">账号注销</view>
+      <view class="row-value">申请注销</view>
+      <view class="arrow">›</view>
+    </view>
   </view>
 
   <!-- 我的档案 -->
@@ -111,6 +117,16 @@
     <view class="row nav" bindtap="onGoArchive">
       <view class="row-label">测肤档案</view>
       <view class="row-value">趋势 · 打卡 · 历程</view>
+      <view class="arrow">›</view>
+    </view>
+  </view>
+
+  <!-- 会员与积分 -->
+  <view class="section-title">会员与积分</view>
+  <view class="card">
+    <view class="row nav" bindtap="onGoPointsMall">
+      <view class="row-label">积分商城</view>
+      <view class="row-value">积分兑礼</view>
       <view class="arrow">›</view>
     </view>
   </view>

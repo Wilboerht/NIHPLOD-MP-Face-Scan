@@ -1,0 +1,13 @@
+<view class="container legal-page">
+  <view class="legal-meta">更新日期：{{doc.updated}}</view>
+
+  <view wx:for="{{doc.sections}}" wx:key="heading" class="legal-section">
+    <view class="legal-heading">{{index + 1}}. {{item.heading}}</view>
+    <view wx:for="{{item.paragraphs}}" wx:for-item="para" wx:key="*this" class="legal-para">{{para}}</view>
+  </view>
+
+  <view class="legal-foot">
+    <view>以上为简明版说明，完整条款以官网公布版本为准。</view>
+    <view>如有疑问请联系客服邮箱：service@nihplod.cn</view>
+  </view>
+</view>

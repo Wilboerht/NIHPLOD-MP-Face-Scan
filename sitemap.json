@@ -1,9 +1,14 @@
 {
   "desc": "肌智派测肤小程序页面索引配置",
   "rules": [
-    {
-      "action": "allow",
-      "page": "*"
-    }
+    { "action": "disallow", "page": "pages/result/result" },
+    { "action": "disallow", "page": "pages/history/history" },
+    { "action": "disallow", "page": "pages/archive/archive" },
+    { "action": "disallow", "page": "pages/profile/profile" },
+    { "action": "disallow", "page": "pages/addresses/addresses" },
+    { "action": "disallow", "page": "pages/password/password" },
+    { "action": "disallow", "page": "pages/phone-rebind/phone-rebind" },
+    { "action": "disallow", "page": "pages/account-deletion/account-deletion" },
+    { "action": "allow", "page": "*" }
   ]
 }

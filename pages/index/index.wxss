@@ -39,6 +39,32 @@
   margin: 0 32rpx;
 }
 
+.privacy-line {
+  margin: 20rpx 32rpx 0;
+  text-align: center;
+  line-height: 1.7;
+}
+
+.privacy-link {
+  color: #6b7a4f;
+}
+
+.privacy-warn {
+  margin: 20rpx 32rpx 0;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  background: #FBF3E4;
+  color: #8a6d4b;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.privacy-agree {
+  margin-left: 12rpx;
+  color: #5c4937;
+  text-decoration: underline;
+}
+
 .history-entry {
   display: flex;
   justify-content: space-between;

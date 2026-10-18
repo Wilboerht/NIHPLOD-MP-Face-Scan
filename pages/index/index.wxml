@@ -12,6 +12,18 @@
 
   <button class="btn-primary start-btn" bindtap="onStart">开始测肤</button>
 
+  <view wx:if="{{!privacyChecking && !privacyReady}}" class="privacy-warn">
+    <text>需同意隐私政策后才能开始测肤</text>
+    <text class="privacy-agree" bindtap="onAgreePrivacy">去同意</text>
+  </view>
+
+  <view class="privacy-line text-muted">
+    开始测肤即表示同意
+    <text class="privacy-link" bindtap="onOpenTerms">《用户协议》</text>
+    与
+    <text class="privacy-link" bindtap="onOpenPrivacy">《隐私政策》</text>
+  </view>
+
   <view class="history-entry" bindtap="onGoArchive">
     <text>我的测肤档案</text>
     <text class="arrow">›</text>
@@ -19,6 +31,11 @@
 
   <view class="history-entry" bindtap="onGoHistory">
     <text>查看历史报告</text>
+    <text class="arrow">›</text>
+  </view>
+
+  <view class="history-entry" bindtap="onGoPointsMall">
+    <text>积分商城</text>
     <text class="arrow">›</text>
   </view>
 
@@ -30,6 +47,4 @@
   <view class="logout-entry text-muted" wx:if="{{isLoggedIn}}" bindtap="onLogout">
     退出登录
   </view>
-
-  <privacy-popup visible="{{showPrivacy}}" bind:agree="onAgreePrivacy" bind:disagree="onDisagreePrivacy" />
 </view>
