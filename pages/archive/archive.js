@@ -129,6 +129,19 @@ Page({
     }
   },
 
+  onPullDownRefresh: function () {
+    if (!auth.isLoggedIn()) {
+      wx.stopPullDownRefresh();
+      return;
+    }
+    var self = this;
+    self._loaded = true;
+    Promise.all([self.loadEntries(), self.loadTrends(), self.loadTests()]).then(
+      function () { wx.stopPullDownRefresh(); },
+      function () { wx.stopPullDownRefresh(); }
+    );
+  },
+
   // --------------------------------------------------------------------------
   // 数据加载
   // --------------------------------------------------------------------------
@@ -180,7 +193,7 @@ Page({
   loadTrends: function () {
     var self = this;
     self.setData({ trendsLoaded: false, trendsError: false });
-    request({
+    return request({
       base: 'advisory',
       url: '/api/user/skin-trends',
       method: 'GET',

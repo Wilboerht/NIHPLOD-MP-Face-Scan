@@ -117,6 +117,7 @@ Page({
     this._manualTimer = null;     // 手动按钮延迟定时器
     this._uiStatus = '';          // 上一次 setData 的状态，用于 setData 去重
     this._capturing = false;      // takePhoto 在途标记（普通变量，避免 setData 竞态）
+    this._multiFace = false;      // 当前帧是否检测到多张人脸（阻断自动/手动拍摄）
     this._inited = false;
 
     this.applyStep(0);
@@ -205,6 +206,7 @@ Page({
   // 整页降级为手动模式：引导文案不变，直接给快门按钮，不再依赖 VK
   downgrade: function (reason) {
     console.warn('[capture] 降级为手动模式:', reason);
+    this._multiFace = false;
     this.stopFrameLoop();
     if (this._vk) {
       try { this._vk.stop(); } catch (e) {}
@@ -287,6 +289,7 @@ Page({
   // 人脸离开画面
   onVkRemoveAnchors: function () {
     this._stableCount = 0;
+    this._multiFace = false;
     this.updateStatusHint('searching');
   },
 
@@ -294,9 +297,17 @@ Page({
     var step = STEP_ORDER[this.data.stepIndex];
     if (!faces.length) {
       this._stableCount = 0;
+      this._multiFace = false;
       this.updateStatusHint('searching');
       return;
     }
+    if (faces.length > 1) {
+      this._stableCount = 0;
+      this._multiFace = true;
+      this.updateStatusHint('multiple');
+      return;
+    }
+    this._multiFace = false;
 
     var metrics = this.computeMetrics(faces[0]);
     if (!metrics) {
@@ -372,6 +383,7 @@ Page({
     this._uiStatus = status;
     var hint = '';
     if (status === 'searching') hint = '未检测到人脸，请把脸放入框内';
+    else if (status === 'multiple') hint = '画面中只能有一个人，请让其他人离开';
     else if (status === 'adjusting') hint = STEP_CONFIG[STEP_ORDER[this.data.stepIndex]].instruction;
     else if (status === 'holding') hint = '很好，保持姿势…';
     this.setData({ statusHint: hint });
@@ -387,6 +399,7 @@ Page({
       return { key: key, label: STEP_CONFIG[key].label, done: i < index, active: i === index };
     });
     this._stableCount = 0;
+    this._multiFace = false;
     this._uiStatus = '';
     this.setData({
       steps: steps,
@@ -419,6 +432,10 @@ Page({
   doCapture: function () {
     var self = this;
     if (self._capturing || !self._cameraCtx) return;
+    if (self._multiFace) {
+      wx.showToast({ title: '画面中只能有一个人', icon: 'none' });
+      return;
+    }
     self._capturing = true;
     self.setData({ capturing: true });
 
@@ -441,6 +458,7 @@ Page({
     wx.compressImage({
       src: tempImagePath,
       quality: 60,
+      compressedWidth: 1080, // 控制长边，降低 base64 超过服务端上限的概率
       success: function (res) { cb(res.tempFilePath); },
       fail: function () { cb(tempImagePath); }, // 压缩失败用原图
     });
@@ -477,14 +495,9 @@ Page({
         return;
       }
     }
-    // front 仍写 FACE_IMAGE_PATH（analyzing.js 只发正脸给 face-analyze，不变）；
-    // 另外 3 张本地留存，供结果页展示用
+    // 只持久化正脸（analyze 只用正脸）；侧脸/下巴仅用于本页姿态流程，
+    // 不再写入 storage，避免敏感照片路径长期留存
     wx.setStorageSync(config.STORAGE_KEYS.FACE_IMAGE_PATH, photos.front);
-    wx.setStorageSync(config.STORAGE_KEYS.FACE_IMAGE_SIDE_PATHS, {
-      right: photos.right,
-      left: photos.left,
-      chin: photos.chin,
-    });
     wx.setStorageSync(config.STORAGE_KEYS.SKIN_STATE, this.data.skinState);
     wx.navigateTo({ url: '/pages/analyzing/analyzing' });
   },

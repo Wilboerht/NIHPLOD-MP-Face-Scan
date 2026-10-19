@@ -24,7 +24,7 @@ function drawRadar(canvas, size, dpr, data, centerScore) {
 
   var cx = size / 2;
   var cy = size / 2;
-  var R = size / 2 - 44; // 留出标签与顶点数值的空间
+  var R = size / 2 - 58; // 留出标签与顶点数值的空间（长标签防裁切）
   var startAngle = -Math.PI / 2; // 第一维在正上方
   var step = (Math.PI * 2) / n;
 
@@ -46,7 +46,7 @@ function drawRadar(canvas, size, dpr, data, centerScore) {
 
   // 轴线 + 维度标签
   ctx.strokeStyle = AXIS_COLOR;
-  ctx.font = '11px sans-serif';
+  ctx.font = '10px sans-serif';
   ctx.fillStyle = LABEL_COLOR;
   for (var j = 0; j < n; j++) {
     var a = startAngle + step * j;
@@ -56,7 +56,7 @@ function drawRadar(canvas, size, dpr, data, centerScore) {
     ctx.lineTo(edge.x, edge.y);
     ctx.stroke();
 
-    var lp = pointAt(cx, cy, R + 16, a);
+    var lp = pointAt(cx, cy, R + 14, a);
     ctx.textAlign = Math.abs(Math.cos(a)) < 0.3 ? 'center' : (Math.cos(a) > 0 ? 'left' : 'right');
     ctx.textBaseline = Math.abs(Math.sin(a)) < 0.3 ? 'middle' : (Math.sin(a) > 0 ? 'top' : 'bottom');
     ctx.fillText(data[j].label, lp.x, lp.y);

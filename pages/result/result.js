@@ -206,9 +206,12 @@ Page({
       .fields({ node: true, size: true })
       .exec(function (res) {
         var node = res && res[0] && res[0].node;
+        var width = res && res[0] && res[0].width;
+        var height = res && res[0] && res[0].height;
         if (!node) return;
+        var size = Math.min(width || RADAR_SIZE, height || RADAR_SIZE) || RADAR_SIZE;
         var info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
-        radar.drawRadar(node, RADAR_SIZE, info.pixelRatio || 2, self._radarData, self.data.overallScore);
+        radar.drawRadar(node, size, info.pixelRatio || 2, self._radarData, self.data.overallScore);
       });
   },
 

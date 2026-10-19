@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "测肤档案"
+  "navigationBarTitleText": "测肤档案",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark"
 }

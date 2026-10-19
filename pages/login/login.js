@@ -1,4 +1,41 @@
+var config = require('../../config.js');
 var auth = require('../../utils/auth.js');
+
+var PENDING_ROUTE_TTL_MS = 10 * 60 * 1000;
+
+// 读取并清理登录前暂存的受保护页面（如报告深链），生成 reLaunch URL
+function consumePendingRoute() {
+  var pending = null;
+  try {
+    pending = wx.getStorageSync(config.STORAGE_KEYS.PENDING_ROUTE);
+    wx.removeStorageSync(config.STORAGE_KEYS.PENDING_ROUTE);
+  } catch (e) {}
+  if (!pending || !pending.route || pending.route === 'pages/login/login') return '';
+  if (!pending.at || Date.now() - pending.at > PENDING_ROUTE_TTL_MS) return '';
+
+  var options = pending.options || {};
+  var parts = [];
+  Object.keys(options).forEach(function (key) {
+    var value = options[key];
+    if (value === undefined || value === null || value === '') return;
+    parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(value)));
+  });
+  return '/' + pending.route + (parts.length ? '?' + parts.join('&') : '');
+}
+
+// 登录成功后的统一收尾：优先回到登录前页面，否则返回上一页/首页
+function finishLogin() {
+  var pendingUrl = consumePendingRoute();
+  if (pendingUrl) {
+    wx.reLaunch({ url: pendingUrl });
+    return;
+  }
+  if (getCurrentPages().length > 1) {
+    wx.navigateBack();
+  } else {
+    wx.reLaunch({ url: '/pages/index/index' });
+  }
+}
 
 Page({
   data: {
@@ -25,13 +62,7 @@ Page({
         return;
       }
       wx.showToast({ title: '登录成功', icon: 'success' });
-      setTimeout(function () {
-        if (getCurrentPages().length > 1) {
-          wx.navigateBack();
-        } else {
-          wx.reLaunch({ url: '/pages/index/index' });
-        }
-      }, 800);
+      setTimeout(finishLogin, 800);
     }).catch(function (err) {
       done();
       wx.showToast({ title: (err && err.message) || '登录失败，请重试', icon: 'none' });
@@ -73,13 +104,7 @@ Page({
       wx.hideLoading();
       self.setData({ loading: false });
       wx.showToast({ title: '注册成功', icon: 'success' });
-      setTimeout(function () {
-        if (getCurrentPages().length > 1) {
-          wx.navigateBack();
-        } else {
-          wx.reLaunch({ url: '/pages/index/index' });
-        }
-      }, 800);
+      setTimeout(finishLogin, 800);
     }).catch(function (err) {
       wx.hideLoading();
       self.setData({ loading: false });

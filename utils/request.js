@@ -79,19 +79,53 @@ function doRefresh() {
 
 // 登录失效回登录页：toast 提示 + 防并发重复 reLaunch（已在登录页则跳过）
 var redirecting = false;
-function redirectToLogin() {
+function redirectToLogin(message) {
   if (redirecting) return;
   var pages = getCurrentPages();
   var top = pages && pages.length ? pages[pages.length - 1] : null;
   if (top && top.route === 'pages/login/login') return;
+
+  // 记录当前受保护页面，登录成功后由 login.finishLogin 跳回（如报告深链）
+  if (top && top.route) {
+    try {
+      wx.setStorageSync(config.STORAGE_KEYS.PENDING_ROUTE, {
+        route: top.route,
+        options: top.options || {},
+        at: Date.now(),
+      });
+    } catch (e) {}
+  }
+
   redirecting = true;
-  wx.showToast({ title: '登录已过期，请重新登录', icon: 'none' });
+  wx.showToast({ title: message || '登录已过期，请重新登录', icon: 'none' });
   wx.reLaunch({
     url: '/pages/login/login',
     complete: function () {
       setTimeout(function () { redirecting = false; }, 1000);
     },
   });
+}
+
+// 账号禁用：主站 OAuth 资源返回 {error:'account_disabled'}，
+// 登录接口返回 {error:{code:'ACCOUNT_DISABLED'}}，两种格式都识别
+function isAccountDisabledData(data) {
+  if (!data) return false;
+  if (data.error === 'account_disabled') return true;
+  if (data.error && typeof data.error === 'object') {
+    return data.error.code === 'ACCOUNT_DISABLED' || data.error.code === 'account_disabled';
+  }
+  return data.code === 'ACCOUNT_DISABLED' || data.code === 'account_disabled';
+}
+
+function handleAccountDisabled(data) {
+  var auth = require('./auth.js');
+  auth.clearSession();
+  redirectToLogin('账号已被禁用，请联系客服');
+  var err = new Error('账号已被禁用，请联系客服');
+  err.statusCode = 403;
+  err.data = data;
+  err.isAccountDisabled = true;
+  return err;
 }
 
 // 是否在发送前主动刷新：已进入过期缓冲期（saveSession 已按提前 5 分钟标记）时先换新 token，
@@ -108,6 +142,10 @@ function handleResponse(res, showError) {
   var data = res.data;
   // 2xx 直接放行（analyze 的 202 "分析中"信号也在此返回，由调用方判断）
   if (res.statusCode >= 200 && res.statusCode < 300) return data;
+  // 账号被禁用：清会话 + 全局回登录页，不再走普通错误 toast
+  if (res.statusCode === 403 && isAccountDisabledData(data)) {
+    throw handleAccountDisabled(data);
+  }
   var message = extractErrorMessage(data, '请求失败（' + res.statusCode + '）');
   var error = new Error(message);
   error.statusCode = res.statusCode;
@@ -191,4 +229,6 @@ module.exports = {
   request: request,
   rawRequest: rawRequest,
   extractErrorMessage: extractErrorMessage,
+  isAccountDisabledData: isAccountDisabledData,
+  handleAccountDisabled: handleAccountDisabled,
 };

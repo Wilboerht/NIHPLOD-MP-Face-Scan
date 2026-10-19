@@ -119,6 +119,10 @@ function uploadAvatar(filePath) {
             resolve(body.data.url);
             return;
           }
+          if (res.statusCode === 403 && requestMod.isAccountDisabledData(body)) {
+            reject(requestMod.handleAccountDisabled(body));
+            return;
+          }
           var err = new Error(
             requestMod.extractErrorMessage(body, '头像上传失败（' + res.statusCode + '）')
           );

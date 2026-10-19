@@ -48,5 +48,6 @@ module.exports = {
     RESULT_PREFIX: 'mp_result_',
     LATEST_SESSION: 'mp_latest_session',
     PENDING_ANALYSIS: 'mp_pending_analysis',
+    PENDING_ROUTE: 'mp_pending_route',
   },
 };

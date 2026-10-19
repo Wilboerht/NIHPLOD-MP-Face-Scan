@@ -162,6 +162,7 @@ function clearSession() {
   wx.removeStorageSync(KEYS.SKIN_STATE);
   wx.removeStorageSync(KEYS.LATEST_SESSION);
   wx.removeStorageSync(KEYS.PENDING_ANALYSIS);
+  wx.removeStorageSync(KEYS.PENDING_ROUTE);
   try {
     var keys = wx.getStorageInfoSync().keys || [];
     for (var i = 0; i < keys.length; i++) {

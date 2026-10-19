@@ -32,7 +32,7 @@ Page({
     if (isFirst) self.setData({ loading: true, loadError: '' });
     else self.setData({ loadingMore: true });
 
-    request({
+    return request({
       base: 'advisory',
       url: '/api/advisor/history?page=' + page + '&limit=' + PAGE_SIZE + '&lite=1',
       method: 'GET',
@@ -68,6 +68,18 @@ Page({
   onLoadMore: function () {
     if (this.data.loadingMore || this.data.page >= this.data.totalPages) return;
     this.fetchHistory(this.data.page + 1);
+  },
+
+  onPullDownRefresh: function () {
+    if (!auth.isLoggedIn()) {
+      wx.stopPullDownRefresh();
+      return;
+    }
+    this.fetchHistory(1).then(function () {
+      wx.stopPullDownRefresh();
+    }, function () {
+      wx.stopPullDownRefresh();
+    });
   },
 
   onItemTap: function (e) {

@@ -213,6 +213,9 @@ Page({
         try { wx.setStorageSync(KEYS.RESULT_PREFIX + sessionId, result); } catch (e) {}
         try { wx.setStorageSync(KEYS.LATEST_SESSION, sessionId); } catch (e) {}
         self.clearPending();
+        // 分析完成：本地不再需要人脸照片路径（报告/证书均不依赖）
+        try { wx.removeStorageSync(KEYS.FACE_IMAGE_PATH); } catch (e) {}
+        try { wx.removeStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS); } catch (e) {}
         self._faceAnalysis = null;
         self._running = false;
         self._finished = true;
@@ -227,23 +230,53 @@ Page({
   },
 
   // 读本地照片为 base64 data URL；无照片（或读取失败）→ null，降级为纯问卷分析
+  // 超过服务端单张上限时再做一次更小尺寸压缩，仍超限则明确提示用户
   readImageAsBase64: function (filePath) {
-    return new Promise(function (resolve) {
-      if (!filePath) { resolve(null); return; }
-      wx.getFileSystemManager().readFile({
-        filePath: filePath,
-        encoding: 'base64',
-        success: function (res) {
-          var base64 = res.data || '';
-          // 服务端单张上限约 1.1MB base64（MAX_IMAGE_BASE64_CHARS=1500000），超限按无照片降级
-          if (base64.length > 1400000) {
-            resolve(null);
-            return;
-          }
-          resolve('data:image/jpeg;base64,' + base64);
-        },
-        fail: function () { resolve(null); },
+    if (!filePath) return Promise.resolve(null);
+
+    function readBase64(path) {
+      return new Promise(function (resolve) {
+        wx.getFileSystemManager().readFile({
+          filePath: path,
+          encoding: 'base64',
+          success: function (res) { resolve(res.data || ''); },
+          fail: function () { resolve(''); },
+        });
       });
+    }
+
+    function compressForRetry(path) {
+      return new Promise(function (resolve) {
+        wx.compressImage({
+          src: path,
+          quality: 50,
+          compressedWidth: 720,
+          success: function (res) { resolve(res.tempFilePath || ''); },
+          fail: function () { resolve(''); },
+        });
+      });
+    }
+
+    return readBase64(filePath).then(function (base64) {
+      if (!base64) {
+        wx.showToast({ title: '照片读取失败，本次仅按问卷分析', icon: 'none', duration: 2500 });
+        return null;
+      }
+      // 服务端单张上限约 1.1MB base64（MAX_IMAGE_BASE64_CHARS=1500000）
+      if (base64.length <= 1400000) return 'data:image/jpeg;base64,' + base64;
+
+      return compressForRetry(filePath)
+        .then(function (compressedPath) {
+          if (!compressedPath) return '';
+          return readBase64(compressedPath);
+        })
+        .then(function (retryBase64) {
+          if (!retryBase64 || retryBase64.length > 1400000) {
+            wx.showToast({ title: '照片过大，本次仅按问卷分析', icon: 'none', duration: 2500 });
+            return null;
+          }
+          return 'data:image/jpeg;base64,' + retryBase64;
+        });
     });
   },
 

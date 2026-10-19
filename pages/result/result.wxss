@@ -232,8 +232,9 @@
 }
 
 .radar-canvas {
-  width: 320px;
-  height: 320px;
+  width: 620rpx;
+  height: 620rpx;
+  margin: 0 auto;
 }
 
 .poster-canvas {
