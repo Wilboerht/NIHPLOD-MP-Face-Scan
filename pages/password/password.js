@@ -15,6 +15,7 @@ Page({
     countdown: 0,
     sending: false,
     submitting: false,
+    showPassword: false,
   },
 
   onLoad: function () {
@@ -43,6 +44,10 @@ Page({
   onNewInput: function (e) { this.setData({ newPassword: e.detail.value || '' }); },
   onConfirmInput: function (e) { this.setData({ confirmPassword: e.detail.value || '' }); },
   onCodeInput: function (e) { this.setData({ code: String(e.detail.value || '').replace(/\D/g, '') }); },
+
+  onTogglePassword: function () {
+    this.setData({ showPassword: !this.data.showPassword });
+  },
 
   startCountdown: function () {
     var self = this;

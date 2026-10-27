@@ -8,9 +8,40 @@
   width: 300rpx;
 }
 
-.progress {
-  text-align: right;
-  margin-bottom: 16rpx;
+.progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 72rpx;
+  margin-bottom: 12rpx;
+}
+
+.progress-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 72rpx;
+  padding: 0 8rpx 0 0;
+  font-size: 26rpx;
+  color: var(--color-primary-strong);
+}
+
+.progress-text {
+  font-size: 24rpx;
+}
+
+.progress-bar {
+  height: 8rpx;
+  margin-bottom: 28rpx;
+  background: var(--color-border);
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.progress-inner {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999rpx;
+  transition: width 0.2s ease;
 }
 
 .q-title {
@@ -28,16 +59,40 @@
 }
 
 .option {
-  background: #FFFFFF;
+  min-height: 96rpx;
+  background: var(--color-card);
   border: 2rpx solid transparent;
   border-radius: 20rpx;
   padding: 28rpx 32rpx;
   margin-bottom: 20rpx;
 }
 
+.option-hover {
+  background: var(--color-warm-soft);
+}
+
+.option-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.option-check {
+  flex-shrink: 0;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--color-primary-strong);
+}
+
 .option-active {
-  border-color: #3D4430;
-  background: #f7f3ea;
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.option-active .option-label {
+  color: var(--color-primary-strong);
+  font-weight: 600;
 }
 
 .option-label {
@@ -53,9 +108,13 @@
 }
 
 .prev {
-  text-align: center;
-  margin-top: 32rpx;
-  padding: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88rpx;
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  color: var(--color-primary-strong);
 }
 
 /* 测肤次数预检拦截卡 */

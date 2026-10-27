@@ -1,12 +1,12 @@
 // 肌肤变化趋势折线图（canvas 2d）
 // 风格与 utils/radar.js 一致：dates 为 ISO 时间数组、scores 为 0-100 分数（已按天聚合、升序）
 
-var LINE_COLOR = '#5c4937';
-var FILL_TOP = 'rgba(92, 73, 55, 0.18)';
-var FILL_BOTTOM = 'rgba(92, 73, 55, 0.01)';
-var GRID_COLOR = '#e8e2d8';
-var LABEL_COLOR = '#8a8577';
-var DOT_STROKE = '#F2EDE5';
+var LINE_COLOR = '#8a6d4b';
+var FILL_TOP = 'rgba(138, 109, 75, 0.16)';
+var FILL_BOTTOM = 'rgba(138, 109, 75, 0.01)';
+var GRID_COLOR = 'rgba(43, 43, 43, 0.08)';
+var LABEL_COLOR = '#5f5a54';
+var DOT_STROKE = '#ffffff';
 
 // ISO 时间 → "M/D"（与 H5 趋势图 x 轴口径一致）
 function fmtMonthDay(iso) {
@@ -58,7 +58,7 @@ function drawTrend(canvas, width, height, dpr, dates, scores) {
   // 水平参考线（3 条）+ 分数刻度
   ctx.strokeStyle = GRID_COLOR;
   ctx.lineWidth = 1;
-  ctx.font = '10px sans-serif';
+  ctx.font = '11px sans-serif';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   for (var g = 0; g <= 2; g++) {
@@ -111,7 +111,7 @@ function drawTrend(canvas, width, height, dpr, dates, scores) {
   dot(n - 1, 4);
 
   // x 轴首尾日期
-  ctx.font = '10px sans-serif';
+  ctx.font = '11px sans-serif';
   ctx.fillStyle = LABEL_COLOR;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';

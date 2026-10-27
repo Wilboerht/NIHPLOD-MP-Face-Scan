@@ -1,12 +1,12 @@
 .legal-page {
-  padding-bottom: 60rpx;
+  padding-bottom: calc(60rpx + env(safe-area-inset-bottom));
 }
 
 .legal-meta {
   margin: 8rpx 0 32rpx;
   text-align: center;
-  font-size: 22rpx;
-  color: #8a8577;
+  font-size: 24rpx;
+  color: var(--color-muted-strong);
 }
 
 .legal-section {
@@ -18,16 +18,16 @@
 }
 
 .legal-heading {
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 600;
   margin-bottom: 14rpx;
-  color: #3D4430;
+  color: var(--color-text);
 }
 
 .legal-para {
-  font-size: 26rpx;
-  line-height: 1.8;
-  color: #3D4430;
+  font-size: 28rpx;
+  line-height: 1.9;
+  color: var(--color-text);
   margin-bottom: 12rpx;
 }
 
@@ -38,7 +38,7 @@
 .legal-foot {
   margin-top: 48rpx;
   padding: 0 8rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   line-height: 1.8;
-  color: #8a8577;
+  color: var(--color-muted-strong);
 }

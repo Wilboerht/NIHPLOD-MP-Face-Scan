@@ -49,6 +49,7 @@ Page({
     wx.requirePrivacyAuthorize({
       success: function () {
         getApp().recordPrivacyConsent();
+        getApp().syncPrivacyConsent();
         self._privacyPrompting = false;
         self.setData({ privacyReady: true, privacyChecking: false });
       },
@@ -64,6 +65,7 @@ Page({
     var self = this;
     if (!wx.requirePrivacyAuthorize) {
       getApp().recordPrivacyConsent();
+      getApp().syncPrivacyConsent();
       self.setData({ privacyReady: true, privacyChecking: false });
       return;
     }
@@ -72,6 +74,7 @@ Page({
     wx.requirePrivacyAuthorize({
       success: function () {
         getApp().recordPrivacyConsent();
+        getApp().syncPrivacyConsent();
         self._privacyPrompting = false;
         self.setData({ privacyReady: true, privacyChecking: false });
         wx.showToast({ title: '已同意隐私政策，请再次点击开始测肤', icon: 'none', duration: 2500 });
@@ -106,7 +109,10 @@ Page({
       return;
     }
     // 低版本基础库没有官方隐私授权 API：以「开始测肤即表示同意」的明示文案记录同意
-    if (!wx.requirePrivacyAuthorize) getApp().recordPrivacyConsent();
+    if (!wx.requirePrivacyAuthorize) {
+      getApp().recordPrivacyConsent();
+      getApp().syncPrivacyConsent();
+    }
     if (!auth.isLoggedIn()) {
       wx.navigateTo({ url: '/pages/login/login' });
       return;
@@ -149,19 +155,16 @@ Page({
     wx.navigateTo({ url: '/pages/profile/profile' });
   },
 
-  onLogout: function () {
-    var self = this;
-    wx.showModal({
-      title: '退出登录',
-      content: '退出后本地登录态将被清除，历史报告仍保留在账号中。',
-      confirmText: '退出',
-      confirmColor: '#b4553f',
-      success: function (res) {
-        if (!res.confirm) return;
-        auth.logout();
-        self.setData({ isLoggedIn: false, user: null });
-        wx.showToast({ title: '已退出登录', icon: 'none' });
-      },
-    });
+  onShareAppMessage: function () {
+    return {
+      title: '肌智派 AI 测肤 · 一张照片读懂你的肌肤',
+      path: '/pages/index/index',
+    };
+  },
+
+  onShareTimeline: function () {
+    return {
+      title: '肌智派 AI 测肤 · 一张照片读懂你的肌肤',
+    };
   },
 });

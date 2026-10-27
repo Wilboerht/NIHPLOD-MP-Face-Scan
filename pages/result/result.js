@@ -14,13 +14,6 @@ var RADAR_DIM_ORDER = [
 ];
 var RADAR_SIZE = 320; // 逻辑 px
 
-// 渠道口令优先级：天猫 > 抖音 > 小红书
-var AFFILIATE_ORDER = [
-  { key: 'taobao', label: '天猫' },
-  { key: 'douyin', label: '抖音' },
-  { key: 'xiaohongshu', label: '小红书' },
-];
-
 // 展示用纯文本兜底：
 // - 剥离 HTML 标签（服务端已用 DOMPurify 剥过全量标签，此处再兜历史缓存/脏数据一层）；
 //   只匹配形如 <p>/</p>/<br/> 的标签，不会误伤「用量<1ml」这类数学比较
@@ -35,6 +28,135 @@ function plainText(text) {
     .replace(/&#39;/g, "'")
     .replace(/&amp;/g, '&')
     .trim();
+}
+
+// 价格展示：主站同步后统一为纯数字（如 "2800"），同时兼容历史缓存 "2,800" / "¥1,350"
+function formatPrice(value) {
+  if (value === null || value === undefined || value === '') return '';
+  var raw = String(value).replace(/[¥,\s]/g, '').trim();
+  if (!raw) return '';
+  var num = Number(raw);
+  if (isNaN(num) || num < 0) return '咨询价格';
+  var parts = String(num).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return '¥ ' + parts.join('.');
+}
+
+// 四渠道统一结构；旧缓存只有 affiliateLinks 时在 normalizePurchaseLinks 中兜底。
+var PURCHASE_PLATFORM_LABELS = {
+  'wechat-shop': '微信小店',
+  tmall: '天猫国际',
+  xiaohongshu: '小红书',
+  douyin: '抖音',
+};
+var PURCHASE_PLATFORM_KEYS = ['wechat-shop', 'tmall', 'xiaohongshu', 'douyin'];
+
+function trimPurchaseText(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function trimHttpUrl(value) {
+  var trimmed = trimPurchaseText(value);
+  // 小程序环境不一定有 WHATWG URL，用正则做协议白名单即可。
+  return /^https?:\/\/[^\s]+$/i.test(trimmed) ? trimmed : '';
+}
+
+function normalizePurchaseLinks(product) {
+  var result = [];
+  var byPlatform = {};
+  var raw = Array.isArray(product.purchaseLinks) ? product.purchaseLinks : null;
+
+  if (raw) {
+    raw.forEach(function (item) {
+      if (!item || typeof item !== 'object') return;
+      var key = item.platformKey;
+      if (PURCHASE_PLATFORM_KEYS.indexOf(key) === -1 || byPlatform[key]) return;
+      var link = {
+        platformKey: key,
+        platform: trimPurchaseText(item.platform) || PURCHASE_PLATFORM_LABELS[key],
+        url: trimHttpUrl(item.url),
+        miniProgramShortLink: trimPurchaseText(item.miniProgramShortLink),
+        miniProgramPath: trimPurchaseText(item.miniProgramPath),
+        storeProductId: trimPurchaseText(item.storeProductId),
+      };
+      byPlatform[key] = link;
+      result.push(link);
+    });
+  }
+
+  // 新结构优先，旧 affiliateLinks 仅补齐缺失渠道/URL，避免迁移期丢渠道。
+  var legacy = product.affiliateLinks || {};
+  var legacyMap = [
+    { key: 'taobao', platformKey: 'tmall' },
+    { key: 'xiaohongshu', platformKey: 'xiaohongshu' },
+    { key: 'douyin', platformKey: 'douyin' },
+  ];
+  legacyMap.forEach(function (item) {
+    var url = trimHttpUrl(legacy[item.key]);
+    if (!url) return;
+    var existing = byPlatform[item.platformKey];
+    if (existing) {
+      if (!existing.url) existing.url = url;
+      return;
+    }
+    var link = {
+      platformKey: item.platformKey,
+      platform: PURCHASE_PLATFORM_LABELS[item.platformKey],
+      url: url,
+      miniProgramShortLink: '',
+      miniProgramPath: '',
+      storeProductId: '',
+    };
+    byPlatform[item.platformKey] = link;
+    result.push(link);
+  });
+  return result;
+}
+
+function buildBuyOptions(links) {
+  var options = [];
+  links.forEach(function (link) {
+    if (link.platformKey === 'wechat-shop') {
+      // 当前优先使用商品级短链；拿到小店 appid + 商品 id 后可升级为
+      // <store-product appid="..." product-id="..."/> 组件或对应跳转。
+      if (link.miniProgramShortLink) {
+        options.push({
+          kind: 'shop-short-link',
+          platformKey: link.platformKey,
+          platform: link.platform,
+          label: '微信小店购买',
+          shortLink: link.miniProgramShortLink,
+          primary: true,
+        });
+      }
+      return;
+    }
+
+    // 天猫国际/小红书/抖音：有 shortLink 时优先跳转，否则复制网页链接；
+    // miniProgramPath/storeProductId 当前后台不写入，待后续能力接入。
+    if (link.miniProgramShortLink) {
+      options.push({
+        kind: 'mini-program-short-link',
+        platformKey: link.platformKey,
+        platform: link.platform,
+        label: '打开' + link.platform,
+        shortLink: link.miniProgramShortLink,
+        primary: true,
+      });
+      return;
+    }
+    if (link.url) {
+      options.push({
+        kind: 'copy',
+        platformKey: link.platformKey,
+        platform: link.platform,
+        label: '复制' + link.platform + '链接',
+        url: link.url,
+        primary: false,
+      });
+    }
+  });
+  return options;
 }
 
 Page({
@@ -344,24 +466,13 @@ Page({
   // --------------------------------------------------------------------------
 
   // 产品卡片附加字段：
-  // - 购买渠道：微信小店按钮（appid 未配置则隐藏）+ 天猫/抖音/小红书复制链接
-  // - 详情弹层数据：主图+图库（相对路径补子站域名）、功效/成分/用法展示字段
-  // 注意：H5 产品 affiliateLinks 字段（taobao/douyin/xiaohongshu）存的是 http(s) 链接，
-  // 尚无文字口令字段；本期复制的是链接（复制后打开对应 App 可被识别为分享口令样式文本）
+  // - 购买渠道：微信小店有 shortLink 才显示；天猫国际/小红书/抖音复制网页链接
+  // - 详情弹层数据：主图+图库（相对路径补子站域名）、功效/成分/用法、产地/规格
+  // 注意：旧缓存只有 affiliateLinks（taobao/douyin/xiaohongshu），由 normalizePurchaseLinks 兜底；
+  // 本期天猫/小红书/抖音复制的是 http(s) 链接，后续可平滑加小程序 shortLink。
   decorateProduct: function (p) {
-    var links = p.affiliateLinks || null;
-    var copyText = '';
-    var copyLabel = '';
-    if (links) {
-      for (var i = 0; i < AFFILIATE_ORDER.length; i++) {
-        var ch = AFFILIATE_ORDER[i];
-        if (links[ch.key]) {
-          copyText = links[ch.key];
-          copyLabel = ch.label;
-          break;
-        }
-      }
-    }
+    var purchaseLinks = normalizePurchaseLinks(p);
+    var buyOptions = buildBuyOptions(purchaseLinks);
     // 主图 + 图库合并去重（相对路径按子站资产补 https://smart.nihplod.cn）
     var image = util.absUrl(p.image || '');
     var images = Array.isArray(p.images) ? p.images : [];
@@ -383,9 +494,10 @@ Page({
     }
     var benefits = Array.isArray(p.benefits) ? p.benefits : [];
     return Object.assign({}, p, {
-      showShop: !!config.WECHAT_SHOP.appid, // 待小店后台获取 appid 后自动显示
-      copyText: copyText,
-      copyLabel: copyLabel,
+      purchaseLinks: purchaseLinks,
+      buyOptions: buyOptions,
+      origin: plainText(p.origin),
+      capacity: plainText(p.capacity),
       displayImage: image,
       galleryImages: gallery,
       reason: plainText(p.reason),
@@ -394,6 +506,7 @@ Page({
       benefitsText: benefits.map(plainText).filter(Boolean).join('、'),
       keyIngredients: keyIngredients,
       socialProofText: socialProofText,
+      priceText: formatPrice(p.price),
       searchKeyword: p.category ? 'nihplod ' + p.category : '',
     });
   },
@@ -428,29 +541,45 @@ Page({
     });
   },
 
-  // 微信小店购买（占位：itemPath 待小店后台获取，如需携带商品 id 可在此拼接）
-  onBuyShop: function () {
-    if (!config.WECHAT_SHOP.appid) return;
-    wx.navigateToMiniProgram({
-      appId: config.WECHAT_SHOP.appid,
-      path: config.WECHAT_SHOP.itemPath || undefined,
-      fail: function () {
-        wx.showToast({ title: '小店打开失败，请稍后重试', icon: 'none' });
-      },
-    });
-  },
+  // 四渠道统一购买入口：
+  // - 微信小店：优先用商品级 shortLink 跳转（需真机验证 #微信小店:// 链接）
+  // - 天猫国际/小红书/抖音：有 shortLink 时跳转，否则复制网页链接
+  // TODO(store-product)：拿到小店 appid + 商品 id 后，可改为 <store-product> 组件
+  // （基础库 3.5.5+，Windows/Mac 不支持），或继续保留短链跳转。
+  onBuyOption: function (e) {
+    var dataset = e.currentTarget.dataset || {};
+    var kind = dataset.kind;
 
-  // 复制渠道口令/链接（天猫/抖音/小红书）
-  onCopyCommand: function (e) {
-    var text = e.currentTarget.dataset.copy;
-    var label = e.currentTarget.dataset.label;
-    if (!text) return;
-    wx.setClipboardData({
-      data: text,
-      success: function () {
-        wx.showToast({ title: '口令已复制，打开' + label + '查看', icon: 'none' });
-      },
-    });
+    if (kind === 'shop-short-link' || kind === 'mini-program-short-link') {
+      var shortLink = dataset.shortLink;
+      if (!shortLink) return;
+      wx.navigateToMiniProgram({
+        shortLink: shortLink,
+        fail: function () {
+          // 短链不被当前微信版本识别时，至少让用户能复制后到微信内打开。
+          wx.setClipboardData({
+            data: shortLink,
+            success: function () {
+              var platform = dataset.platform || '小程序';
+              wx.showToast({ title: '已复制' + platform + '短链，请在微信中打开', icon: 'none' });
+            },
+          });
+        },
+      });
+      return;
+    }
+
+    if (kind === 'copy') {
+      var url = dataset.url;
+      var platform = dataset.platform || '对应 App';
+      if (!url) return;
+      wx.setClipboardData({
+        data: url,
+        success: function () {
+          wx.showToast({ title: '链接已复制，打开' + platform + '查看', icon: 'none' });
+        },
+      });
+    }
   },
 
   onBackHome: function () {

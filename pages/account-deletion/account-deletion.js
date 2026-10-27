@@ -92,7 +92,7 @@ Page({
       title: '确认申请注销',
       content: '冷静期内可随时撤回；生效后账号不可恢复，确定继续吗？',
       confirmText: '继续申请',
-      confirmColor: '#b4553f',
+      confirmColor: '#c25450',
       success: function (res) {
         if (res.confirm) self.doSubmit();
       },
@@ -163,6 +163,18 @@ Page({
 
   goLogin: function () {
     wx.navigateTo({ url: '/pages/login/login' });
+  },
+
+  onOpenPrivacy: function () {
+    if (wx.openPrivacyContract) {
+      wx.openPrivacyContract({
+        fail: function () {
+          wx.navigateTo({ url: '/pages/legal/legal?type=privacy' });
+        },
+      });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/legal/legal?type=privacy' });
   },
 
   copyEmail: function () {

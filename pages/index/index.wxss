@@ -1,82 +1,107 @@
-/* 自绘导航栏：状态栏占位由内联 padding-top 提供，内容区与系统导航栏同高 44px */
-.nav-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 44px;
-  box-sizing: content-box;
-}
-
-.nav-logo {
-  width: 200rpx;
-  height: 56rpx;
-}
-
 .hero {
   text-align: center;
-  padding: 120rpx 0 80rpx;
+  padding: 72rpx 0 48rpx;
 }
 
 .brand {
   font-size: 72rpx;
   font-weight: 700;
   letter-spacing: 8rpx;
+  color: var(--color-logo-navy);
 }
 
 .slogan {
-  font-size: 32rpx;
+  font-size: 30rpx;
   margin-top: 24rpx;
-  color: #5a5546;
+  color: var(--color-text-secondary);
 }
 
 .desc {
   font-size: 24rpx;
   margin-top: 16rpx;
-  color: #8a8577;
+  color: var(--color-muted-strong);
 }
 
 .start-btn {
-  margin: 0 32rpx;
+  margin: 0;
 }
 
 .privacy-line {
-  margin: 20rpx 32rpx 0;
+  margin: 20rpx 0 0;
   text-align: center;
   line-height: 1.7;
 }
 
 .privacy-link {
-  color: #6b7a4f;
+  color: var(--color-primary-strong);
 }
 
 .privacy-warn {
-  margin: 20rpx 32rpx 0;
+  margin: 20rpx 0 0;
   padding: 20rpx 24rpx;
   border-radius: 16rpx;
-  background: #FBF3E4;
-  color: #8a6d4b;
+  background: var(--color-warm);
+  color: var(--color-primary-strong);
   font-size: 24rpx;
   text-align: center;
 }
 
 .privacy-agree {
   margin-left: 12rpx;
-  color: #5c4937;
+  color: var(--color-primary-strong);
   text-decoration: underline;
+}
+
+.prep-card {
+  margin-top: 24rpx;
+  margin-bottom: 24rpx;
+  background: var(--color-warm);
+  box-shadow: none;
+}
+
+.prep-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.prep-row {
+  position: relative;
+  padding-left: 24rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.prep-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 15rpx;
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: var(--color-primary);
 }
 
 .history-entry {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 40rpx 32rpx 0;
-  padding: 28rpx 32rpx;
-  background: #FFFFFF;
-  border-radius: 24rpx;
+  min-height: 100rpx;
+  margin: 0 0 16rpx;
+  padding: 0 28rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.history-entry:last-of-type {
+  margin-bottom: 0;
 }
 
 .arrow {
-  color: #b5ad9c;
+  color: #b8a992;
   font-size: 36rpx;
 }
 
@@ -89,16 +114,12 @@
 }
 
 .edit-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 72rpx;
+  padding: 0 20rpx;
   font-size: 24rpx;
-  color: #6b7a4f;
-  border: 2rpx solid #6b7a4f;
+  color: var(--color-primary-strong);
+  border: 2rpx solid var(--color-primary-strong);
   border-radius: 999rpx;
-  padding: 4rpx 20rpx;
-}
-
-.logout-entry {
-  margin-top: 32rpx;
-  text-align: center;
-  font-size: 24rpx;
-  padding: 16rpx;
 }

@@ -30,15 +30,18 @@
 
 .field-label {
   font-size: 26rpx;
-  color: #8a8577;
+  color: var(--color-muted-strong);
   margin: 28rpx 0 12rpx;
 }
 
 .field-input {
+  display: flex;
+  align-items: center;
   width: 100%;
+  height: 88rpx;
   font-size: 30rpx;
-  padding: 20rpx 0;
-  border-bottom: 2rpx solid #e3dccf;
+  padding: 0;
+  border-bottom: 2rpx solid var(--color-border);
   box-sizing: border-box;
 }
 
@@ -56,12 +59,12 @@
   flex-shrink: 0;
   margin: 0;
   padding: 0 24rpx;
-  font-size: 24rpx;
-  line-height: 64rpx;
-  height: 64rpx;
+  font-size: 26rpx;
+  line-height: 80rpx;
+  height: 80rpx;
   border-radius: 999rpx;
-  background: #f0ebe0;
-  color: #3D4430;
+  background: var(--color-primary-soft-2);
+  color: var(--color-primary-strong);
 }
 
 .code-btn[disabled] {

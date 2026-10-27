@@ -54,6 +54,12 @@ Page({
     if (this._progressTimer) { clearInterval(this._progressTimer); this._progressTimer = null; }
   },
 
+  ensureConsent: function () {
+    var app = getApp();
+    if (!app || !app.syncPrivacyConsent) return Promise.resolve(true);
+    return app.syncPrivacyConsent();
+  },
+
   // 模拟进度条：阶段跳变 + 缓慢填充（避免卡在 99%）
   startProgress: function () {
     var self = this;
@@ -109,6 +115,11 @@ Page({
     self._finished = false;
     self.stopTimers();
     self.setData({ error: '', stageText: '正在准备…', progress: 2, running: true });
+    if (wx.enableAlertBeforeUnload) {
+      wx.enableAlertBeforeUnload({
+        message: '分析尚未完成，离开后可能需要重新分析，确定离开吗？',
+      });
+    }
     self.startProgress();
 
     var answers = wx.getStorageSync(KEYS.ANSWERS) || null;
@@ -138,13 +149,16 @@ Page({
     self._pendingFingerprint = fingerprint;
     self.savePending();
 
-    var facePromise;
-    if (self._faceAnalysis) {
-      // 上一次 face-analyze 已成功：跳过视觉调用，直接用缓存结果继续 analyze
-      self.setData({ stageText: '继续生成专属护肤报告…', progress: 65 });
-      facePromise = Promise.resolve(self._faceAnalysis);
-    } else {
-      facePromise = self.readImageAsBase64(faceImagePath).then(function (imageData) {
+    var facePromise = self.ensureConsent().then(function (consentOk) {
+      if (!consentOk) {
+        throw new Error('隐私授权同步失败，请返回首页重新同意隐私政策');
+      }
+      if (self._faceAnalysis) {
+        // 上一次 face-analyze 已成功：跳过视觉调用，直接用缓存结果继续 analyze
+        self.setData({ stageText: '继续生成专属护肤报告…', progress: 65 });
+        return self._faceAnalysis;
+      }
+      return self.readImageAsBase64(faceImagePath).then(function (imageData) {
         if (!imageData) return null;
         self.setData({ stageText: 'AI 正在分析面部照片…', progress: 25 });
         // POST /api/advisor/face-analyze
@@ -168,7 +182,7 @@ Page({
           return faceAnalysis;
         });
       });
-    }
+    });
 
     facePromise
       .then(function (faceAnalysis) {
@@ -221,7 +235,9 @@ Page({
         self._finished = true;
         self.stopTimers();
         self.setData({ progress: 100, stageText: '分析完成', running: false });
-        wx.redirectTo({ url: '/pages/result/result?sessionId=' + sessionId });
+        if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
+        // reLaunch 避免系统返回落回拍摄页
+        wx.reLaunch({ url: '/pages/result/result?sessionId=' + sessionId });
       })
       .catch(function (err) {
         if (self._finished) return;
@@ -331,6 +347,7 @@ Page({
   fail: function (message) {
     this._running = false;
     this.stopTimers();
+    if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
     this.setData({ running: false, error: message, stageText: '分析未完成' });
     this.savePending();
   },

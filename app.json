@@ -19,10 +19,10 @@
     "wx9fb8f3d1c719c4ed"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#F2EDE5",
+    "navigationBarBackgroundColor": "#f7f5f2",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "肌智派",
-    "backgroundColor": "#F2EDE5",
+    "backgroundColor": "#f7f5f2",
     "backgroundTextStyle": "dark"
   },
   "style": "v2",

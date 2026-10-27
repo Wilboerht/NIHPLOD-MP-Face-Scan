@@ -80,12 +80,20 @@
 
 - `config.js`
   - `OFFICIAL_BASE_URL` / `ADVISORY_BASE_URL`：双后端域名
-  - `WECHAT_SHOP`：微信小店 appid 与商品路径，为空时报告页隐藏「小店购买」按钮
+  - `WECHAT_SHOP`：微信小店 `store-product` 升级用 appid 占位；当前每个商品使用后端 `purchaseLinks` 中的 `miniProgramShortLink`，有短链才显示「微信小店购买」
   - `POINTS_MP`：积分商城小程序 appid/path（首页与用户中心入口；需在 `app.json` 的 `navigateToMiniProgramAppIdList` 声明）
   - `PRIVACY_VERSION`：隐私协议版本，随 analyze 请求以上报 `privacyConsent`
   - `STORAGE_KEYS.PENDING_ANALYSIS`：分析失败会话暂存（重试复用 sessionId，避免重复扣次）
 - `pages/capture/capture.js` 顶部 `CALIBRATION`：真机方向校准开关（`MIRROR_X` / `SWAP_XY`），跨机型适配时调整
 - `project.private.config.json` 为本地私有配置，不入库（见 `.gitignore`）
+
+## 购买渠道
+
+- 四渠道：微信小店、天猫国际、小红书、抖音；后端 `Product.purchaseLinks` 为统一结构。
+- 微信小店：商品级 `miniProgramShortLink` 直接 `wx.navigateToMiniProgram({ shortLink })`；跳转失败会复制短链兜底。真实短链需真机验证，并确认 `#微信小店://` 是否受当前微信版本/`app.json` allowlist 限制。
+- 天猫国际/小红书/抖音：有 `miniProgramShortLink` 时跳转，否则报告页复制 `url` 后在对应 App 打开。
+- 当前后台只写入 H5 URL 与小程序短链；`miniProgramPath`、`storeProductId` 为后续 `store-product` 预留，暂不生效。
+- 兼容旧缓存：`purchaseLinks` 缺失的渠道会用旧 `affiliateLinks` 补齐（`taobao` → 天猫国际）。
 
 ## 隐私与数据
 

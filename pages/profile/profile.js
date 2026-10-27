@@ -39,13 +39,20 @@ Page({
     today: '',
     saving: false,
     vip: null,
+    version: '开发版',
   },
 
   onLoad: function () {
     this._saving = false;
     var user = auth.getUser() || {};
     var avatar = util.absUrl(user.avatarUrl || '', 'official');
+    var version = '开发版';
+    try {
+      var accountInfo = wx.getAccountInfoSync && wx.getAccountInfoSync();
+      version = (accountInfo && accountInfo.miniProgram && accountInfo.miniProgram.version) || version;
+    } catch (e) {}
     this.setData({
+      version: version,
       nickname: user.name || '',
       avatarUrl: avatar,
       displayAvatar: avatar,
@@ -120,17 +127,20 @@ Page({
       var level = data.level || 'REGULAR';
       var totalUsed = usage.totalUsed || 0;
       var lifetimeLimit = usage.lifetimeLimit;
-      var remaining = lifetimeLimit != null ? Math.max(0, lifetimeLimit - totalUsed) : null;
+      // 终身额度为 null 时（金卡/钻石/管理员自定义每日上限）按“不限次”展示；
+      // 不能只看 usage.unlimited：自定义每日上限会解除终身限制，但 unlimited 仍为 false。
+      var noLifetimeLimit = lifetimeLimit == null;
+      var remaining = noLifetimeLimit ? null : Math.max(0, lifetimeLimit - totalUsed);
       self.setData({
         vip: {
           levelLabel: VIP_LEVEL_LABELS[level] || '普通会员',
-          usageText: usage.unlimited
+          usageText: noLifetimeLimit
             ? '不限次'
-            : '已用 ' + totalUsed + ' / 共 ' + (lifetimeLimit == null ? '-' : lifetimeLimit) + ' 次',
+            : '已用 ' + totalUsed + ' / 共 ' + lifetimeLimit + ' 次',
           todayText: usage.dailyLimit != null
             ? '今日已用 ' + (usage.todayUsed || 0) + '/' + usage.dailyLimit
             : '',
-          exhaustedText: !usage.unlimited && remaining != null && remaining <= 0
+          exhaustedText: !noLifetimeLimit && remaining != null && remaining <= 0
             ? (level === 'SILVER'
                 ? '测肤次数已用完，升级金卡会员可享不限次 AI 测肤'
                 : '测肤次数已用完，升级银卡会员可获更多测肤次数')
@@ -344,12 +354,28 @@ Page({
     wx.navigateTo({ url: '/pages/account-deletion/account-deletion' });
   },
 
+  onGoPrivacy: function () {
+    if (wx.openPrivacyContract) {
+      wx.openPrivacyContract({
+        fail: function () {
+          wx.navigateTo({ url: '/pages/legal/legal?type=privacy' });
+        },
+      });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/legal/legal?type=privacy' });
+  },
+
+  onGoTerms: function () {
+    wx.navigateTo({ url: '/pages/legal/legal?type=terms' });
+  },
+
   onLogout: function () {
     wx.showModal({
       title: '退出登录',
       content: '退出后本地登录态将被清除，历史报告仍保留在账号中。',
       confirmText: '退出',
-      confirmColor: '#b4553f',
+      confirmColor: '#c25450',
       success: function (res) {
         if (!res.confirm) return;
         auth.logout();

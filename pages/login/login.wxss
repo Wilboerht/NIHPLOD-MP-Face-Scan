@@ -1,21 +1,44 @@
 .login-page {
-  padding-top: 200rpx;
+  padding-top: 56rpx;
 }
 
 .logo-area {
   text-align: center;
-  margin-bottom: 120rpx;
+  margin-bottom: 40rpx;
 }
 
-.logo {
-  font-size: 64rpx;
-  font-weight: 700;
-  letter-spacing: 6rpx;
+.login-logo {
+  width: 320rpx;
+  height: 90rpx;
+  margin: 0 auto;
+}
+
+.value-card {
+  padding: 8rpx 28rpx;
+  margin-bottom: 32rpx;
+}
+
+.value-row {
+  position: relative;
+  padding: 14rpx 0 14rpx 24rpx;
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+}
+
+.value-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 27rpx;
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: var(--color-primary);
 }
 
 .tip {
   font-size: 26rpx;
-  color: #8a8577;
+  color: var(--color-muted-strong);
   margin-top: 20rpx;
 }
 
@@ -25,7 +48,7 @@
 }
 
 .protocol-link {
-  color: #6b7a4f;
+  color: var(--color-primary-strong);
 }
 
 .bind-tip {
@@ -41,6 +64,15 @@
 
 .bind-desc {
   font-size: 26rpx;
-  color: #8a8577;
+  color: var(--color-muted-strong);
   line-height: 1.6;
+}
+
+.skip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88rpx;
+  margin-top: 16rpx;
+  font-size: 26rpx;
 }

@@ -138,12 +138,25 @@ function shouldRefreshBeforeSend() {
   return expiresAt > 0 && Date.now() >= expiresAt;
 }
 
-function handleResponse(res, showError) {
+function handleResponse(res, showError, base) {
   var data = res.data;
   // 2xx 直接放行（analyze 的 202 "分析中"信号也在此返回，由调用方判断）
   if (res.statusCode >= 200 && res.statusCode < 300) return data;
-  // 账号被禁用：清会话 + 全局回登录页，不再走普通错误 toast
+  // 账号被禁用
   if (res.statusCode === 403 && isAccountDisabledData(data)) {
+    // 子站单独禁用：只限制测肤功能，不清主站登录态（用户仍可使用积分/资料等主站能力）
+    if (base === 'advisory') {
+      var advisoryMessage = extractErrorMessage(data, '测肤功能已被限制，请联系客服');
+      var advisoryError = new Error(advisoryMessage);
+      advisoryError.statusCode = 403;
+      advisoryError.data = data;
+      advisoryError.isAdvisoryDisabled = true;
+      if (showError) {
+        wx.showToast({ title: String(advisoryMessage).slice(0, 28), icon: 'none', duration: 2500 });
+      }
+      throw advisoryError;
+    }
+    // 主站账号被禁用：清会话 + 全局回登录页
     throw handleAccountDisabled(data);
   }
   var message = extractErrorMessage(data, '请求失败（' + res.statusCode + '）');
@@ -170,6 +183,8 @@ function request(options) {
   var opts = options || {};
   var skipAuth = !!opts.skipAuth;
   var showError = opts.showError !== false;
+  // 区分主站/子站错误语义：子站 ACCOUNT_DISABLED 只限制测肤，不清主站登录态
+  var base = opts.base || 'advisory';
 
   function send() {
     var header = Object.assign({}, opts.header || {});
@@ -210,7 +225,7 @@ function request(options) {
               // 刷新后仍 401：登录态确实失效
               throw sessionExpiredError();
             }
-            return handleResponse(retryRes, showError);
+            return handleResponse(retryRes, showError, base);
           });
         },
         function (err) {
@@ -221,7 +236,7 @@ function request(options) {
         }
       );
     }
-    return handleResponse(res, showError);
+    return handleResponse(res, showError, base);
   });
 }
 

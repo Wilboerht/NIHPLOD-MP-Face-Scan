@@ -1,4 +1,4 @@
-<view class="container">
+<view class="container result-page">
   <view wx:if="{{loading}}" class="state text-muted">报告加载中…</view>
 
   <view wx:elif="{{loadError}}" class="state">
@@ -84,32 +84,47 @@
     <!-- 推荐产品 -->
     <view class="section-title" wx:if="{{products.length}}">为你推荐</view>
     <view class="card product" wx:for="{{products}}" wx:key="id" wx:for-item="p" wx:for-index="pi">
-      <view class="p-main" data-index="{{pi}}" bindtap="onOpenProduct">
+      <view class="p-main" data-index="{{pi}}" bindtap="onOpenProduct" hover-class="row-hover" aria-role="button" aria-label="查看{{p.name}}详情">
         <image wx:if="{{p.displayImage}}" class="p-thumb" src="{{p.displayImage}}" mode="aspectFill" lazy-load />
         <view class="p-body">
           <view class="p-name">{{p.name}}</view>
           <view class="p-benefits" wx:if="{{p.benefitsText}}">{{p.benefitsText}}</view>
           <view class="p-reason text-muted" wx:if="{{p.reason}}">{{p.reason}}</view>
           <view class="p-proof" wx:if="{{p.socialProofText}}">★ {{p.socialProofText}}</view>
+          <view class="p-meta" wx:if="{{p.origin || p.capacity}}">
+            <text wx:if="{{p.origin}}">产地：{{p.origin}}</text>
+            <text wx:if="{{p.capacity}}">规格：{{p.capacity}}</text>
+          </view>
           <view class="p-price-row">
-            <view class="p-price" wx:if="{{p.price}}">¥{{p.price}}</view>
+            <view class="p-price" wx:if="{{p.priceText}}">{{p.priceText}}</view>
             <view class="p-detail-hint">查看详情 ›</view>
           </view>
         </view>
       </view>
-      <view class="p-actions">
-        <button wx:if="{{p.showShop}}" class="p-btn p-btn-primary" catchtap="onBuyShop">微信小店购买</button>
-        <button wx:if="{{p.copyText}}" class="p-btn" data-copy="{{p.copyText}}" data-label="{{p.copyLabel}}" catchtap="onCopyCommand">复制口令购买</button>
+      <view class="p-actions" wx:if="{{p.buyOptions.length > 0}}">
+        <button
+          wx:for="{{p.buyOptions}}"
+          wx:key="platformKey"
+          class="p-btn {{item.primary ? 'p-btn-primary' : ''}}"
+          data-kind="{{item.kind}}"
+          data-url="{{item.url}}"
+          data-short-link="{{item.shortLink}}"
+          data-platform="{{item.platform}}"
+          catchtap="onBuyOption"
+        >{{item.label}}</button>
       </view>
     </view>
 
-    <!-- 操作区：证书/分享 -->
-    <view class="actions">
-      <button class="btn-plain action" bindtap="onSavePoster">保存测肤证书</button>
-      <button class="btn-plain action" open-type="share">分享给朋友</button>
+    <view class="ai-disclaimer">
+      结果由 AI 分析生成，仅供护肤参考，不构成医疗诊断。推荐商品可能包含推广链接，请按需选择。
     </view>
 
-    <view class="home text-muted" bindtap="onBackHome">返回首页</view>
+    <view class="home text-muted" bindtap="onBackHome" hover-class="chip-hover" aria-role="button">返回首页</view>
+
+    <view class="report-actions-bar">
+      <button class="btn-plain report-action" bindtap="onSavePoster">保存证书</button>
+      <button class="btn-primary report-action" open-type="share">分享给朋友</button>
+    </view>
 
     <!-- 海报离屏画布（1440×1920 缓冲，移出可视区） -->
     <canvas type="2d" id="posterCanvas" class="poster-canvas"></canvas>
@@ -118,14 +133,14 @@
   <!-- 产品详情弹层（对齐 H5 ProductDetailModal：图库/名称/价格/推荐理由/成分/功效/用法/购买） -->
   <view class="sheet-mask" wx:if="{{detailOpen && detailProduct}}" bindtap="onCloseDetail" catchtouchmove="noop">
     <view class="sheet" catchtap="noop">
-      <view class="pd-close" bindtap="onCloseDetail">✕</view>
+      <view class="pd-close" bindtap="onCloseDetail" hover-class="chip-hover" aria-role="button" aria-label="关闭产品详情">✕</view>
 
       <swiper
         wx:if="{{detailProduct.galleryImages.length > 0}}"
         class="pd-swiper"
         indicator-dots="{{detailProduct.galleryImages.length > 1}}"
         indicator-color="rgba(0,0,0,0.15)"
-        indicator-active-color="#3D4430"
+        indicator-active-color="#8a6d4b"
         circular
       >
         <swiper-item wx:for="{{detailProduct.galleryImages}}" wx:key="*this">
@@ -137,7 +152,11 @@
         <view class="pd-body">
           <view class="pd-cat" wx:if="{{detailProduct.category}}">{{detailProduct.category}}</view>
           <view class="pd-name">{{detailProduct.name}}</view>
-          <view class="pd-price" wx:if="{{detailProduct.price}}">¥{{detailProduct.price}}</view>
+          <view class="pd-price" wx:if="{{detailProduct.priceText}}">{{detailProduct.priceText}}</view>
+          <view class="pd-meta" wx:if="{{detailProduct.origin || detailProduct.capacity}}">
+            <text wx:if="{{detailProduct.origin}}">产地：{{detailProduct.origin}}</text>
+            <text wx:if="{{detailProduct.capacity}}">规格：{{detailProduct.capacity}}</text>
+          </view>
           <view class="pd-reason" wx:if="{{detailProduct.reason}}">{{detailProduct.reason}}</view>
 
           <view class="pd-section" wx:if="{{detailProduct.descriptionText}}">
@@ -160,13 +179,21 @@
             <view class="pd-text">{{detailProduct.howToUse}}</view>
           </view>
 
-          <view class="pd-search" wx:if="{{detailProduct.searchKeyword}}" bindtap="onCopySearchKeyword">
+          <view class="pd-search" wx:if="{{detailProduct.searchKeyword}}" bindtap="onCopySearchKeyword" hover-class="chip-hover" aria-role="button">
             去小红书了解更多（复制搜索词） ›
           </view>
 
-          <view class="pd-actions">
-            <button wx:if="{{detailProduct.showShop}}" class="p-btn p-btn-primary" catchtap="onBuyShop">微信小店购买</button>
-            <button wx:if="{{detailProduct.copyText}}" class="p-btn" data-copy="{{detailProduct.copyText}}" data-label="{{detailProduct.copyLabel}}" catchtap="onCopyCommand">复制口令购买</button>
+          <view class="pd-actions" wx:if="{{detailProduct.buyOptions.length > 0}}">
+            <button
+              wx:for="{{detailProduct.buyOptions}}"
+              wx:key="platformKey"
+              class="p-btn {{item.primary ? 'p-btn-primary' : ''}}"
+              data-kind="{{item.kind}}"
+              data-url="{{item.url}}"
+              data-short-link="{{item.shortLink}}"
+              data-platform="{{item.platform}}"
+              catchtap="onBuyOption"
+            >{{item.label}}</button>
           </view>
         </view>
       </scroll-view>

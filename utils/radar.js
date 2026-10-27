@@ -1,11 +1,12 @@
 // 十维雷达图绘制（canvas 2d）
 // data: [{ label, score(0-100) }] 固定十维顺序；centerScore: 中心总分（可空）
 
-var GRID_COLOR = '#ddd6c7';
-var AXIS_COLOR = '#ddd6c7';
-var LABEL_COLOR = '#5a5546';
-var DATA_STROKE = '#3D4430';
-var DATA_FILL = 'rgba(61, 68, 48, 0.2)';
+var GRID_COLOR = 'rgba(43, 43, 43, 0.08)';
+var AXIS_COLOR = 'rgba(43, 43, 43, 0.08)';
+var LABEL_COLOR = '#5f5a54';
+var DATA_STROKE = '#8a6d4b';
+var DATA_FILL = 'rgba(138, 109, 75, 0.16)';
+var CENTER_COLOR = '#00263e';
 
 function pointAt(cx, cy, r, angleRad) {
   return { x: cx + r * Math.cos(angleRad), y: cy + r * Math.sin(angleRad) };
@@ -24,7 +25,7 @@ function drawRadar(canvas, size, dpr, data, centerScore) {
 
   var cx = size / 2;
   var cy = size / 2;
-  var R = size / 2 - 58; // 留出标签与顶点数值的空间（长标签防裁切）
+  var R = size / 2 - 58; // 留出维度标签的空间（长标签防裁切）
   var startAngle = -Math.PI / 2; // 第一维在正上方
   var step = (Math.PI * 2) / n;
 
@@ -46,7 +47,7 @@ function drawRadar(canvas, size, dpr, data, centerScore) {
 
   // 轴线 + 维度标签
   ctx.strokeStyle = AXIS_COLOR;
-  ctx.font = '10px sans-serif';
+  ctx.font = '11px sans-serif';
   ctx.fillStyle = LABEL_COLOR;
   for (var j = 0; j < n; j++) {
     var a = startAngle + step * j;
@@ -79,24 +80,10 @@ function drawRadar(canvas, size, dpr, data, centerScore) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // 顶点数值
-  ctx.font = '10px sans-serif';
-  ctx.fillStyle = DATA_STROKE;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  for (var m = 0; m < n; m++) {
-    var score2 = typeof data[m].score === 'number' ? data[m].score : 0;
-    var vr = (R * Math.max(0, Math.min(100, score2))) / 100;
-    var va = startAngle + step * m;
-    // 沿径向外移 12px，避免数值压住多边形顶点
-    var vp = pointAt(cx, cy, vr + 12, va);
-    ctx.fillText(String(Math.round(score2)), vp.x, vp.y);
-  }
-
   // 中心总分
   if (typeof centerScore === 'number') {
     ctx.font = '600 30px sans-serif';
-    ctx.fillStyle = DATA_STROKE;
+    ctx.fillStyle = CENTER_COLOR;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(Math.round(centerScore)), cx, cy - 8);

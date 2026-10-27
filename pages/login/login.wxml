@@ -1,7 +1,13 @@
-<view class="container login-page">
+<view class="container login-page safe-bottom">
   <view class="logo-area">
-    <view class="logo">肌智派</view>
+    <image class="login-logo" src="/images/nihplod-logo.svg" mode="aspectFit" aria-label="肌智派" />
     <view class="tip">登录后可保存测肤报告、查看历史记录</view>
+  </view>
+
+  <view class="value-card card">
+    <view class="value-row">保存十维肌肤报告</view>
+    <view class="value-row">回看历史测肤与肌肤变化</view>
+    <view class="value-row">同步会员权益和测肤次数</view>
   </view>
 
   <button wx:if="{{!needBinding}}" class="btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">
@@ -25,4 +31,6 @@
     与
     <text class="protocol-link" bindtap="onOpenPrivacy">《隐私政策》</text>
   </view>
+
+  <view wx:if="{{!needBinding}}" class="skip text-muted" bindtap="onSkip" hover-class="chip-hover" aria-role="button">暂不登录，先看看</view>
 </view>

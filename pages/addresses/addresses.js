@@ -71,7 +71,7 @@ Page({
       return;
     }
     this.resetForm();
-    this.setData({ view: 'form' });
+    this.setData({ view: 'form' }, this.afterShowForm);
   },
 
   onEdit: function (e) {
@@ -89,12 +89,26 @@ Page({
         isDefault: !!item.isDefault,
       },
       view: 'form',
+    }, this.afterShowForm);
+  },
+
+  afterShowForm: function () {
+    wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+    if (wx.enableAlertBeforeUnload) {
+      wx.enableAlertBeforeUnload({ message: '地址尚未保存，确定离开吗？' });
+    }
+  },
+
+  leaveForm: function () {
+    if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
+    this.setData({ view: 'list' }, function () {
+      wx.pageScrollTo({ scrollTop: 0, duration: 0 });
     });
   },
 
   onFormCancel: function () {
     this.resetForm();
-    this.setData({ view: 'list' });
+    this.leaveForm();
   },
 
   onRecipientInput: function (e) {
@@ -175,7 +189,10 @@ Page({
       if (res && res.success) {
         wx.showToast({ title: editingId ? '地址已更新' : '地址已添加', icon: 'success' });
         self.resetForm();
-        self.setData({ view: 'list', loading: true });
+        if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
+        self.setData({ view: 'list', loading: true }, function () {
+          wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+        });
         self.load();
       } else {
         account.toast((res && res.error && res.error.message) || '保存失败，请稍后重试');

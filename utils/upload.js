@@ -5,7 +5,6 @@
 var config = require('../config.js');
 var requestMod = require('./request.js');
 var request = requestMod.request;
-var rawRequest = requestMod.rawRequest;
 
 // 读文件为 ArrayBuffer（不传 encoding 即返回 ArrayBuffer）
 function readFileBuffer(filePath) {
@@ -14,6 +13,45 @@ function readFileBuffer(filePath) {
       filePath: filePath,
       success: function (res) { resolve(res.data); },
       fail: function () { reject(new Error('读取本地文件失败')); },
+    });
+  });
+}
+
+function getFileSize(filePath) {
+  return new Promise(function (resolve, reject) {
+    wx.getFileInfo({
+      filePath: filePath,
+      success: function (res) { resolve(res.size); },
+      fail: function () { reject(new Error('读取文件大小失败')); },
+    });
+  });
+}
+
+function uploadToOssPost(filePath, data, meta) {
+  return new Promise(function (resolve, reject) {
+    wx.uploadFile({
+      url: data.uploadUrl,
+      filePath: filePath,
+      name: 'file',
+      formData: {
+        key: data.key,
+        policy: data.policy,
+        OSSAccessKeyId: data.ossAccessKeyId,
+        signature: data.signature,
+        success_action_status: data.successActionStatus || '201',
+        'Content-Type': meta.type,
+      },
+      timeout: 60000,
+      success: function (res) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(data.publicUrl);
+          return;
+        }
+        reject(new Error('上传失败（' + res.statusCode + '），请重试'));
+      },
+      fail: function () {
+        reject(new Error('网络连接异常，上传失败，请重试'));
+      },
     });
   });
 }
@@ -35,63 +73,49 @@ function resolveImageMeta(filePath) {
 
 /**
  * 上传图片，resolve 绝对地址的 publicUrl
- * sign 响应 data: { uploadUrl, publicUrl, objectName }
- *  - OSS 配置时 uploadUrl 是阿里云预签名 https URL（PUT 裸字节，无需鉴权）
+ * sign 响应 data: { storage, uploadUrl, publicUrl, policy, signature, key, ... }
+ *  - OSS 配置时使用 PostObject 表单直传（policy 内含 content-length-range）
  *  - 未配置时降级为 /api/local-upload?path=...（相对路径，需登录 Bearer）
  */
 function uploadImage(filePath, filenamePrefix) {
   var meta = resolveImageMeta(filePath);
   var filename = (filenamePrefix || 'image') + '.' + meta.ext;
 
-  return request({
-    base: 'advisory',
-    url: '/api/oss/sign',
-    method: 'POST',
-    data: { filename: filename, type: meta.type },
-    showError: false,
+  return getFileSize(filePath).then(function (size) {
+    return request({
+      base: 'advisory',
+      url: '/api/oss/sign',
+      method: 'POST',
+      data: { filename: filename, type: meta.type, size: size },
+      showError: false,
+    });
   }).then(function (res) {
     var data = (res && res.data) || {};
     if (!data.uploadUrl || !data.publicUrl) {
       throw new Error('获取上传签名失败');
     }
+
+    var publicUrl = data.publicUrl;
+    if (publicUrl.charAt(0) === '/') {
+      publicUrl = config.ADVISORY_BASE_URL + publicUrl;
+    }
+
+    if (data.storage === 'oss' || data.policy) {
+      return uploadToOssPost(filePath, data, meta).then(function () {
+        return publicUrl;
+      });
+    }
+
     return readFileBuffer(filePath).then(function (buffer) {
-      var uploadUrl = data.uploadUrl;
-      var isLocalFallback = uploadUrl.charAt(0) === '/';
-
-      var putPromise;
-      if (isLocalFallback) {
-        // 本地降级：走 request() 以获得 Bearer 注入与 401 刷新重试（local-upload 要求登录）
-        putPromise = request({
-          base: 'advisory',
-          url: uploadUrl,
-          method: 'PUT',
-          header: { 'Content-Type': meta.type },
-          data: buffer,
-          timeout: 60000,
-          showError: false,
-        });
-      } else {
-        // OSS 预签名直传：裸字节 PUT，不能带 Authorization
-        putPromise = rawRequest({
-          url: uploadUrl,
-          method: 'PUT',
-          header: { 'Content-Type': meta.type },
-          data: buffer,
-          timeout: 60000,
-        }).then(function (res) {
-          if (res.statusCode < 200 || res.statusCode >= 300) {
-            throw new Error('上传失败（' + res.statusCode + '），请重试');
-          }
-          return res.data;
-        });
-      }
-
-      return putPromise.then(function () {
-        var publicUrl = data.publicUrl;
-        // 本地降级时 publicUrl 是相对路径（/uploads/...），补全为绝对地址
-        if (publicUrl.charAt(0) === '/') {
-          publicUrl = config.ADVISORY_BASE_URL + publicUrl;
-        }
+      return request({
+        base: 'advisory',
+        url: data.uploadUrl,
+        method: 'PUT',
+        header: { 'Content-Type': meta.type },
+        data: buffer,
+        timeout: 60000,
+        showError: false,
+      }).then(function () {
         return publicUrl;
       });
     });

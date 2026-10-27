@@ -1,7 +1,8 @@
-<!-- 自绘导航栏（index.json navigationStyle: custom）：顶部栏展示 logo -->
+<!-- 自绘导航栏（index.json navigationStyle: custom）：固定悬浮，logo 保持深蓝原色 -->
 <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
-  <image class="nav-logo" src="/images/nihplod-logo.svg" mode="aspectFit" />
+  <image class="nav-logo" src="/images/nihplod-logo.svg" mode="aspectFit" aria-label="肌智派" />
 </view>
+<view style="height: {{statusBarHeight + 44}}px;"></view>
 
 <view class="container">
   <view class="hero">
@@ -24,27 +25,30 @@
     <text class="privacy-link" bindtap="onOpenPrivacy">《隐私政策》</text>
   </view>
 
-  <view class="history-entry" bindtap="onGoArchive">
+  <view class="prep-card card">
+    <view class="prep-title">开始前准备</view>
+    <view class="prep-row">素颜或淡妆，摘掉眼镜、口罩和帽子</view>
+    <view class="prep-row">正对自然光，避免逆光和强烈滤镜</view>
+    <view class="prep-row">全程约 2 分钟，完成后可在历史报告查看</view>
+  </view>
+
+  <view class="history-entry" bindtap="onGoArchive" hover-class="row-hover" aria-role="button" aria-label="我的测肤档案">
     <text>我的测肤档案</text>
-    <text class="arrow">›</text>
+    <text class="arrow" aria-hidden="true">›</text>
   </view>
 
-  <view class="history-entry" bindtap="onGoHistory">
+  <view class="history-entry" bindtap="onGoHistory" hover-class="row-hover" aria-role="button" aria-label="查看历史报告">
     <text>查看历史报告</text>
-    <text class="arrow">›</text>
+    <text class="arrow" aria-hidden="true">›</text>
   </view>
 
-  <view class="history-entry" bindtap="onGoPointsMall">
+  <view class="history-entry" bindtap="onGoPointsMall" hover-class="row-hover" aria-role="button" aria-label="打开积分商城">
     <text>积分商城</text>
-    <text class="arrow">›</text>
+    <text class="arrow" aria-hidden="true">›</text>
   </view>
 
   <view class="hello" wx:if="{{isLoggedIn && user}}">
     <text class="text-muted">你好，{{user.name || '护肤达人'}}</text>
-    <text class="edit-link" bindtap="onEditProfile">用户中心</text>
-  </view>
-
-  <view class="logout-entry text-muted" wx:if="{{isLoggedIn}}" bindtap="onLogout">
-    退出登录
+    <text class="edit-link" bindtap="onEditProfile" hover-class="chip-hover" aria-role="button">用户中心</text>
   </view>
 </view>

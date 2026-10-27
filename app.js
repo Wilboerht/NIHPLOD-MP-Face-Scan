@@ -22,4 +22,32 @@ App({
     if (!agreed || !agreed.consentedAt) return null;
     return { version: agreed.version || config.PRIVACY_VERSION, consentedAt: agreed.consentedAt };
   },
+
+  // 将微信平台隐私授权同步到测肤子站（服务端 analyze/face-analyze 强校验）
+  syncPrivacyConsent: function () {
+    var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
+    if (!agreed || !agreed.consentedAt || agreed.version !== config.PRIVACY_VERSION) {
+      return Promise.resolve(false);
+    }
+
+    var token = wx.getStorageSync(config.STORAGE_KEYS.ACCESS_TOKEN) || '';
+    if (!token) return Promise.resolve(false);
+
+    var request = require('./utils/request.js').request;
+    return request({
+      base: 'advisory',
+      url: '/api/account/consent',
+      method: 'POST',
+      showError: false,
+      data: {
+        agreed: true,
+        version: config.PRIVACY_VERSION,
+        scopes: ['privacy', 'face', 'health', 'ai'],
+      },
+    }).then(function () {
+      return true;
+    }).catch(function () {
+      return false;
+    });
+  },
 });

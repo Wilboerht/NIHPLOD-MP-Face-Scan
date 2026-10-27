@@ -1,19 +1,44 @@
 .capture-page {
   display: flex;
   flex-direction: column;
+  height: 100vh;
   min-height: 100vh;
-  background: #F2EDE5;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--color-bg);
 }
 
 .camera-wrap {
   position: relative;
   width: 100%;
-  height: 750rpx;
+  flex: 1;
+  min-height: 360rpx;
+  background: var(--color-text);
 }
 
 .camera {
   width: 100%;
   height: 100%;
+}
+
+.camera-flash {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.flash-on {
+  animation: camera-flash 0.35s ease-out;
+}
+
+@keyframes camera-flash {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
 }
 
 .face-guide {
@@ -23,7 +48,7 @@
   transform: translate(-50%, -50%);
   width: 420rpx;
   height: 560rpx;
-  border: 4rpx dashed rgba(242, 237, 229, 0.9);
+  border: 4rpx dashed rgba(255, 255, 255, 0.9);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -43,18 +68,18 @@
   padding: 6rpx 24rpx;
   border-radius: 999rpx;
   font-size: 24rpx;
-  color: rgba(242, 237, 229, 0.7);
+  color: rgba(255, 255, 255, 0.72);
   background: rgba(0, 0, 0, 0.35);
 }
 
 .step-active {
-  color: #3D4430;
-  background: #F2EDE5;
+  color: #ffffff;
+  background: var(--color-primary);
 }
 
 .step-done {
-  color: #3D4430;
-  background: #a9b78c;
+  color: #ffffff;
+  background: var(--color-success-strong);
 }
 
 .instruction {
@@ -67,7 +92,7 @@
 .status-hint {
   text-align: center;
   font-size: 26rpx;
-  color: #6b7a4f;
+  color: var(--color-primary-strong);
   padding: 8rpx 32rpx;
   min-height: 40rpx;
 }
@@ -92,32 +117,37 @@
 }
 
 .ss-item {
-  padding: 10rpx 28rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72rpx;
+  padding: 0 28rpx;
   border-radius: 999rpx;
-  background: #FFFFFF;
-  font-size: 26rpx;
+  background: var(--color-card);
+  font-size: 28rpx;
   border: 2rpx solid transparent;
 }
 
 .ss-active {
-  border-color: #3D4430;
-  background: #f7f3ea;
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
 }
 
 .shutter-area {
-  flex: 1;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24rpx 0 48rpx;
-  min-height: 200rpx;
+  min-height: 180rpx;
+  padding: 16rpx 0 calc(24rpx + env(safe-area-inset-bottom));
 }
 
 .shutter {
   width: 140rpx;
   height: 140rpx;
   border-radius: 50%;
-  border: 8rpx solid #3D4430;
+  border: 8rpx solid var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -127,7 +157,7 @@
   width: 104rpx;
   height: 104rpx;
   border-radius: 50%;
-  background: #3D4430;
+  background: var(--color-primary);
 }
 
 .shutter-disabled {

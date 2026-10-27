@@ -1,4 +1,4 @@
-<view class="container">
+<view class="container safe-bottom">
   <view wx:if="{{loading}}" class="state text-muted">加载中…</view>
 
   <view wx:elif="{{loadError}}" class="state">
@@ -24,6 +24,8 @@
         type="number"
         value="{{newPhone}}"
         maxlength="11"
+        cursor-spacing="24"
+        placeholder-class="input-placeholder"
         placeholder="输入新手机号"
         bindinput="onNewPhoneInput"
       />
@@ -36,6 +38,8 @@
             type="number"
             value="{{currentCode}}"
             maxlength="6"
+            cursor-spacing="24"
+            placeholder-class="input-placeholder"
             placeholder="6位验证码"
             bindinput="onCurrentCodeInput"
           />
@@ -56,6 +60,8 @@
           type="number"
           value="{{newCode}}"
           maxlength="6"
+          cursor-spacing="24"
+          placeholder-class="input-placeholder"
           placeholder="6位验证码"
           bindinput="onNewCodeInput"
         />

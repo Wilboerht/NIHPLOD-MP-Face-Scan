@@ -5,7 +5,7 @@
     <view class="progress-bar">
       <view class="progress-inner" style="width: {{progress}}%"></view>
     </view>
-    <view class="text-muted tip">AI 正在深度分析，全程约需 1-2 分钟，请勿退出</view>
+    <view class="text-muted tip">AI 正在深度分析，通常需要 1-2 分钟，请保持页面开启</view>
   </block>
 
   <block wx:else>

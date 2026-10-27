@@ -9,6 +9,8 @@
     { "action": "disallow", "page": "pages/password/password" },
     { "action": "disallow", "page": "pages/phone-rebind/phone-rebind" },
     { "action": "disallow", "page": "pages/account-deletion/account-deletion" },
+    { "action": "disallow", "page": "pages/capture/capture" },
+    { "action": "disallow", "page": "pages/analyzing/analyzing" },
     { "action": "allow", "page": "*" }
   ]
 }

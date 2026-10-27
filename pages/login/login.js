@@ -25,16 +25,24 @@ function consumePendingRoute() {
 
 // 登录成功后的统一收尾：优先回到登录前页面，否则返回上一页/首页
 function finishLogin() {
-  var pendingUrl = consumePendingRoute();
-  if (pendingUrl) {
-    wx.reLaunch({ url: pendingUrl });
+  function navigate() {
+    var pendingUrl = consumePendingRoute();
+    if (pendingUrl) {
+      wx.reLaunch({ url: pendingUrl });
+      return;
+    }
+    if (getCurrentPages().length > 1) {
+      wx.navigateBack();
+    } else {
+      wx.reLaunch({ url: '/pages/index/index' });
+    }
+  }
+  var app = getApp();
+  if (app && app.syncPrivacyConsent) {
+    app.syncPrivacyConsent().then(navigate, navigate);
     return;
   }
-  if (getCurrentPages().length > 1) {
-    wx.navigateBack();
-  } else {
-    wx.reLaunch({ url: '/pages/index/index' });
-  }
+  navigate();
 }
 
 Page({
@@ -67,6 +75,15 @@ Page({
       done();
       wx.showToast({ title: (err && err.message) || '登录失败，请重试', icon: 'none' });
     });
+  },
+
+  onSkip: function () {
+    try { wx.removeStorageSync(config.STORAGE_KEYS.PENDING_ROUTE); } catch (e) {}
+    if (getCurrentPages().length > 1) {
+      wx.navigateBack();
+    } else {
+      wx.reLaunch({ url: '/pages/index/index' });
+    }
   },
 
   onOpenPrivacy: function () {

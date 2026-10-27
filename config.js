@@ -17,11 +17,13 @@ module.exports = {
     RETEST_REMINDER: 'eWR6LRZzF8sgcxkxCbqgHbtWVnbBlfzpSi8lVLQ6tZ8',
   },
 
-  // 隐私协议版本：随 analyze 请求上报 privacyConsent
-  PRIVACY_VERSION: 'mp-1.0',
+  // 隐私协议版本：与子站当前 CONSENT_VERSION 保持一致
+  PRIVACY_VERSION: '2026-10-27',
 
-  // 微信小店：appid / 商品页路径均为占位，待小店后台获取后填入；
-  // appid 为空时结果页「微信小店购买」按钮自动隐藏
+  // 微信小店：当前商品级短链/商品 id 存在后端 purchaseLinks 中，
+  // 有 shortLink 才显示「微信小店购买」；没有配置时按钮自动隐藏。
+  // store-product 升级预留：拿到小店 appid + 商品 id 后在此填 appid，
+  // 并把结果页购买入口切到 <store-product>（基础库 3.5.5+，Windows/Mac 不支持）。
   WECHAT_SHOP: {
     appid: '',
     itemPath: '',

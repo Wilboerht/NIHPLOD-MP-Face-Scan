@@ -1,4 +1,4 @@
-<view class="container">
+<view class="container safe-bottom">
   <view wx:if="{{loading}}" class="state text-muted">加载中…</view>
 
   <view wx:elif="{{loadError}}" class="state">
@@ -17,6 +17,8 @@
         class="field-input"
         value="{{form.recipient}}"
         maxlength="20"
+        cursor-spacing="24"
+        placeholder-class="input-placeholder"
         placeholder="收货人姓名"
         bindinput="onRecipientInput"
       />
@@ -27,6 +29,8 @@
         type="number"
         value="{{form.phone}}"
         maxlength="11"
+        cursor-spacing="24"
+        placeholder-class="input-placeholder"
         placeholder="收货手机号"
         bindinput="onPhoneInput"
       />
@@ -43,13 +47,15 @@
         class="field-input"
         value="{{form.detail}}"
         maxlength="120"
+        cursor-spacing="24"
+        placeholder-class="input-placeholder"
         placeholder="街道、门牌号等"
         bindinput="onDetailInput"
       />
 
       <view class="default-row">
         <text class="default-label">设为默认地址</text>
-        <switch checked="{{form.isDefault}}" color="#3D4430" bindchange="onDefaultChange" />
+        <switch checked="{{form.isDefault}}" color="#8a6d4b" bindchange="onDefaultChange" />
       </view>
     </view>
 
@@ -77,12 +83,12 @@
       </view>
       <view class="addr-actions">
         <block wx:if="{{confirmingDeleteId === item.id}}">
-          <text class="link-danger" data-id="{{item.id}}" bindtap="onDeleteConfirm">确认删除</text>
-          <text class="link-plain" bindtap="onDeleteCancel">取消</text>
+          <text class="link-danger" data-id="{{item.id}}" bindtap="onDeleteConfirm" hover-class="chip-hover" aria-role="button">确认删除</text>
+          <text class="link-plain" bindtap="onDeleteCancel" hover-class="chip-hover" aria-role="button">取消</text>
         </block>
         <block wx:else>
-          <text class="link" data-index="{{index}}" bindtap="onEdit">编辑</text>
-          <text class="link-danger" data-id="{{item.id}}" bindtap="onDeleteTap">删除</text>
+          <text class="link" data-index="{{index}}" bindtap="onEdit" hover-class="chip-hover" aria-role="button">编辑</text>
+          <text class="link-danger" data-id="{{item.id}}" bindtap="onDeleteTap" hover-class="chip-hover" aria-role="button">删除</text>
         </block>
       </view>
     </view>

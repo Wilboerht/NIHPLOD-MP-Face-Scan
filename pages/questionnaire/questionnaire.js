@@ -42,11 +42,21 @@ Page({
     answers: {},
     multiDraft: [],       // 多选题当前勾选
     maxSelect: 0,         // 多选上限（0 为不限）
+    progressPercent: 0,
   },
 
   onLoad: function () {
+    this._advancing = false;
+    this._advanceTimer = null;
     this.fetchQuestions();
     this.checkLimit();
+  },
+
+  onUnload: function () {
+    if (this._advanceTimer) {
+      clearTimeout(this._advanceTimer);
+      this._advanceTimer = null;
+    }
   },
 
   fetchQuestions: function () {
@@ -82,6 +92,15 @@ Page({
       showError: false,
     }).then(function (data) {
       if (!data || data.canTest) return;
+      if (data.accountDisabled) {
+        self.setData({
+          limitBlocked: true,
+          limitRequireLogin: false,
+          limitTitle: '测肤功能已被限制',
+          limitMessage: data.error || data.message || '账号已被限制使用测肤功能，请联系客服',
+        });
+        return;
+      }
       var requireLogin = !!data.requireLogin;
       self.setData({
         limitBlocked: true,
@@ -102,12 +121,16 @@ Page({
     var visible = this.data.questions.filter(function (q) { return isQuestionVisible(q, answers); });
     var safeIndex = Math.min(index, visible.length - 1);
     var question = visible[safeIndex] || null;
+    var percent = visible.length ? Math.round(((safeIndex + 1) / visible.length) * 100) : 0;
     this.setData({
       visibleQuestions: visible,
       current: safeIndex,
       question: question,
       multiDraft: [],
       maxSelect: question && question.id === 'primaryConcern' ? 3 : 0,
+      progressPercent: percent,
+    }, function () {
+      wx.pageScrollTo({ scrollTop: 0, duration: 0 });
     });
     this.refreshDisplayOptions();
   },
@@ -137,13 +160,21 @@ Page({
 
   // 单选：选中即进入下一题
   onSingleTap: function (e) {
+    if (this._advancing) return;
+    this._advancing = true;
+    var self = this;
     var value = e.currentTarget.dataset.value;
     var q = this.data.question;
     var answers = Object.assign({}, this.data.answers);
     answers[q.fieldName] = value;
     this.setData({ answers: answers });
     this.refreshDisplayOptions();
-    this.next();
+    // 让选中态和勾选反馈可见，再进入下一题
+    self._advanceTimer = setTimeout(function () {
+      self._advanceTimer = null;
+      self._advancing = false;
+      self.next();
+    }, 140);
   },
 
   // 多选：切换勾选，点"下一题"确认
@@ -165,15 +196,22 @@ Page({
   },
 
   onMultiConfirm: function () {
+    if (this._advancing) return;
     var q = this.data.question;
     if (this.data.multiDraft.length === 0) {
       wx.showToast({ title: '请至少选择一项', icon: 'none' });
       return;
     }
+    this._advancing = true;
+    var self = this;
     var answers = Object.assign({}, this.data.answers);
     answers[q.fieldName] = this.data.multiDraft.slice();
     this.setData({ answers: answers });
-    this.next();
+    self._advanceTimer = setTimeout(function () {
+      self._advanceTimer = null;
+      self._advancing = false;
+      self.next();
+    }, 80);
   },
 
   next: function () {
@@ -201,11 +239,14 @@ Page({
   },
 
   onPrev: function () {
+    if (this._advancing) return;
     if (this.data.current > 0) {
       this.refreshVisible(this.data.current - 1);
     } else {
       // 第一题再点"上一题"回到性别选择
-      this.setData({ phase: 'gender' });
+      this.setData({ phase: 'gender' }, function () {
+        wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+      });
     }
   },
 

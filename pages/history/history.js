@@ -13,24 +13,33 @@ Page({
     page: 1,
     totalPages: 1,
     loadingMore: false,
+    skeletonRows: [1, 2, 3],
+  },
+
+  onLoad: function () {
+    this._loaded = false;
   },
 
   onShow: function () {
     if (!auth.isLoggedIn()) {
+      this._loaded = false;
       this.setData({ loading: false, notLoggedIn: true, list: [] });
       return;
     }
     this.setData({ notLoggedIn: false });
+    if (this._loaded) return;
+    this._loaded = true;
     this.fetchHistory(1);
   },
 
   // GET /api/advisor/history?page=&limit=&lite=1
   // 响应 { history: [{sessionId, completedAt, analysisResult: {faceAnalysis?, skinProfile?, persona?}}], pagination: {page, limit, total, totalPages} }
-  fetchHistory: function (page) {
+  fetchHistory: function (page, options) {
     var self = this;
     var isFirst = page === 1;
-    if (isFirst) self.setData({ loading: true, loadError: '' });
-    else self.setData({ loadingMore: true });
+    var silent = !!(options && options.silent);
+    if (isFirst && !silent) self.setData({ loading: true, loadError: '' });
+    else if (!isFirst) self.setData({ loadingMore: true });
 
     return request({
       base: 'advisory',
@@ -52,6 +61,7 @@ Page({
       self.setData({
         loading: false,
         loadingMore: false,
+        loadError: '',
         list: isFirst ? items : self.data.list.concat(items),
         page: pagination.page,
         totalPages: pagination.totalPages || 1,
@@ -60,7 +70,7 @@ Page({
       self.setData({
         loading: false,
         loadingMore: false,
-        loadError: isFirst ? (err.message || '加载失败，请重试') : '',
+        loadError: isFirst && !silent ? (err.message || '加载失败，请重试') : self.data.loadError,
       });
     });
   },
@@ -70,12 +80,16 @@ Page({
     this.fetchHistory(this.data.page + 1);
   },
 
+  onReachBottom: function () {
+    this.onLoadMore();
+  },
+
   onPullDownRefresh: function () {
     if (!auth.isLoggedIn()) {
       wx.stopPullDownRefresh();
       return;
     }
-    this.fetchHistory(1).then(function () {
+    this.fetchHistory(1, { silent: this.data.list.length > 0 }).then(function () {
       wx.stopPullDownRefresh();
     }, function () {
       wx.stopPullDownRefresh();
@@ -89,6 +103,10 @@ Page({
 
   onGoLogin: function () {
     wx.navigateTo({ url: '/pages/login/login' });
+  },
+
+  onGoQuestionnaire: function () {
+    wx.navigateTo({ url: '/pages/questionnaire/questionnaire' });
   },
 
   onRetry: function () {

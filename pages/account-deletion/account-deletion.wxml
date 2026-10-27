@@ -1,4 +1,4 @@
-<view class="container">
+<view class="container safe-bottom">
   <view wx:if="{{loading}}" class="state text-muted">加载中…</view>
 
   <block wx:elif="{{loggedIn}}">
@@ -26,11 +26,12 @@
     </block>
 
     <block wx:else>
-      <view class="card">
+      <view class="card warn-card">
         <view class="card-title">注销前须知</view>
         <view class="tip text-muted">· 提交申请后设有冷静期（默认 7 天），期间账号可正常使用，并可随时撤回。</view>
         <view class="tip text-muted">· 注销生效后不可恢复：未使用的积分、会员权益与未履约的兑换记录将作废。</view>
         <view class="tip text-muted">· 所有已授权平台将退出登录，个人资料将被删除或匿名化处理。</view>
+        <view class="tip text-muted">· 数据删除与匿名化规则详见 <text class="link" bindtap="onOpenPrivacy" hover-class="chip-hover" aria-role="button">隐私政策</text>。</view>
       </view>
 
       <view class="card">
@@ -39,6 +40,8 @@
           class="reason-input"
           value="{{reason}}"
           maxlength="500"
+          cursor-spacing="24"
+          placeholder-class="input-placeholder"
           placeholder="帮助我们了解注销原因"
           bindinput="onReasonInput"
         />
@@ -47,12 +50,12 @@
       <view class="card">
         <checkbox-group bindchange="onConfirmChange">
           <label class="confirm-label">
-            <checkbox value="confirm" checked="{{confirmed}}" color="#b4553f" />
+            <checkbox value="confirm" checked="{{confirmed}}" color="#c25450" />
             <text class="confirm-text">我已阅读并理解上述后果，自愿申请注销账号</text>
           </label>
         </checkbox-group>
         <button
-          class="btn-primary action-btn"
+          class="btn-danger action-btn"
           loading="{{submitting}}"
           disabled="{{submitting || !confirmed}}"
           bindtap="submit"
@@ -63,7 +66,7 @@
     <view class="card">
       <view class="card-title">无法自行办理？</view>
       <view class="tip text-muted">
-        · 可发起客服会话，或邮件至 {{email}}（<text class="link" bindtap="copyEmail">复制</text>）。
+        · 可发起客服会话，或邮件至 {{email}}（<text class="link" bindtap="copyEmail" hover-class="chip-hover" aria-role="button">复制</text>）。
       </view>
       <button class="btn-plain contact-btn" open-type="contact">联系客服协助注销</button>
     </view>

@@ -1,7 +1,7 @@
-<view class="container">
+<view class="container safe-bottom">
   <!-- 头像区 -->
   <view class="card user-head">
-    <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" disabled="{{saving}}">
+    <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" disabled="{{saving}}" hover-class="chip-hover" aria-label="更换头像">
       <image wx:if="{{displayAvatar}}" class="avatar" src="{{displayAvatar}}" mode="aspectFill" />
       <view wx:else class="avatar avatar-placeholder">{{avatarChar}}</view>
     </button>
@@ -23,16 +23,18 @@
           value="{{nicknameDraft}}"
           placeholder="请输入昵称"
           maxlength="20"
+          cursor-spacing="24"
+          placeholder-class="input-placeholder"
           bindinput="onNicknameInput"
         />
         <view class="row-actions">
-          <text class="link-plain" bindtap="onNicknameCancel">取消</text>
-          <text class="link-strong" bindtap="onNicknameSave">保存</text>
+          <text class="link-plain" bindtap="onNicknameCancel" hover-class="chip-hover" aria-role="button">取消</text>
+          <text class="link-strong" bindtap="onNicknameSave" hover-class="chip-hover" aria-role="button">保存</text>
         </view>
       </block>
       <block wx:else>
         <view class="row-value">{{nickname || '未设置'}}</view>
-        <view class="row-modify" bindtap="onNicknameEdit">修改</view>
+        <view class="row-modify" bindtap="onNicknameEdit" hover-class="chip-hover" aria-role="button">修改</view>
       </block>
     </view>
 
@@ -42,15 +44,15 @@
     <view class="row">
       <view class="row-label">性别</view>
       <view class="row-value">{{genderLabel}}</view>
-      <view class="row-modify" bindtap="onGenderToggle">{{editingGender ? '收起' : '修改'}}</view>
+      <view class="row-modify" bindtap="onGenderToggle" hover-class="chip-hover" aria-role="button">{{editingGender ? '收起' : '修改'}}</view>
     </view>
     <view class="inline-panel" wx:if="{{editingGender}}">
       <view class="inline-tip text-muted">用于会员服务与个性化推荐；可随时修改或设为保密。</view>
       <view class="opt-row">
-        <view class="opt {{gender === 'male' ? 'opt-active' : ''}}" data-value="male" bindtap="onGenderPick">男</view>
-        <view class="opt {{gender === 'female' ? 'opt-active' : ''}}" data-value="female" bindtap="onGenderPick">女</view>
-        <view class="opt {{!gender ? 'opt-active' : ''}}" data-value="none" bindtap="onGenderPick">保密</view>
-        <text class="link-plain" bindtap="onGenderCancel">取消</text>
+        <view class="opt {{gender === 'male' ? 'opt-active' : ''}}" data-value="male" bindtap="onGenderPick" hover-class="chip-hover" aria-role="radio" aria-checked="{{gender === 'male'}}">男</view>
+        <view class="opt {{gender === 'female' ? 'opt-active' : ''}}" data-value="female" bindtap="onGenderPick" hover-class="chip-hover" aria-role="radio" aria-checked="{{gender === 'female'}}">女</view>
+        <view class="opt {{!gender ? 'opt-active' : ''}}" data-value="none" bindtap="onGenderPick" hover-class="chip-hover" aria-role="radio" aria-checked="{{!gender}}">保密</view>
+        <text class="link-plain" bindtap="onGenderCancel" hover-class="chip-hover" aria-role="button">取消</text>
       </view>
     </view>
 
@@ -65,12 +67,12 @@
       </block>
       <block wx:elif="{{editingBirthday}}">
         <view class="row-actions">
-          <text class="link-plain" bindtap="onBirthdayCancel">取消</text>
-          <text class="link-strong" bindtap="onBirthdaySave">保存</text>
+          <text class="link-plain" bindtap="onBirthdayCancel" hover-class="chip-hover" aria-role="button">取消</text>
+          <text class="link-strong" bindtap="onBirthdaySave" hover-class="chip-hover" aria-role="button">保存</text>
         </view>
       </block>
       <block wx:else>
-        <view class="row-modify" bindtap="onBirthdayEdit">设置</view>
+        <view class="row-modify" bindtap="onBirthdayEdit" hover-class="chip-hover" aria-role="button">设置</view>
       </block>
     </view>
     <view class="inline-panel" wx:if="{{editingBirthday && !birthday}}">
@@ -86,48 +88,42 @@
   <!-- 账号与安全 -->
   <view class="section-title">账号与安全</view>
   <view class="card">
-    <view class="row nav" bindtap="onGoPhone">
+    <view class="row nav" bindtap="onGoPhone" hover-class="row-hover" aria-role="button">
       <view class="row-label">绑定手机号</view>
       <view class="row-value">{{phoneLabel}}</view>
-      <view class="arrow">›</view>
+      <view class="arrow" aria-hidden="true">›</view>
     </view>
     <view class="divider"></view>
-    <view class="row nav" bindtap="onGoPassword">
+    <view class="row nav" bindtap="onGoPassword" hover-class="row-hover" aria-role="button">
       <view class="row-label">密码</view>
       <view class="row-value">{{passwordLabel}}</view>
-      <view class="arrow">›</view>
+      <view class="arrow" aria-hidden="true">›</view>
     </view>
     <view class="divider"></view>
-    <view class="row nav" bindtap="onGoAddresses">
+    <view class="row nav" bindtap="onGoAddresses" hover-class="row-hover" aria-role="button">
       <view class="row-label">收货地址</view>
       <view class="row-value">{{addressLabel}}</view>
-      <view class="arrow">›</view>
-    </view>
-    <view class="divider"></view>
-    <view class="row nav" bindtap="onGoAccountDeletion">
-      <view class="row-label">账号注销</view>
-      <view class="row-value">申请注销</view>
-      <view class="arrow">›</view>
+      <view class="arrow" aria-hidden="true">›</view>
     </view>
   </view>
 
   <!-- 我的档案 -->
   <view class="section-title">我的档案</view>
   <view class="card">
-    <view class="row nav" bindtap="onGoArchive">
+    <view class="row nav" bindtap="onGoArchive" hover-class="row-hover" aria-role="button">
       <view class="row-label">测肤档案</view>
       <view class="row-value">趋势 · 打卡 · 历程</view>
-      <view class="arrow">›</view>
+      <view class="arrow" aria-hidden="true">›</view>
     </view>
   </view>
 
   <!-- 会员与积分 -->
   <view class="section-title">会员与积分</view>
   <view class="card">
-    <view class="row nav" bindtap="onGoPointsMall">
+    <view class="row nav" bindtap="onGoPointsMall" hover-class="row-hover" aria-role="button">
       <view class="row-label">积分商城</view>
       <view class="row-value">积分兑礼</view>
-      <view class="arrow">›</view>
+      <view class="arrow" aria-hidden="true">›</view>
     </view>
   </view>
 
@@ -140,5 +136,46 @@
     <view class="hint text-muted" wx:if="{{vip.exhaustedText}}">{{vip.exhaustedText}}</view>
   </view>
 
-  <button class="btn-plain logout-btn" bindtap="onLogout">退出登录</button>
+  <!-- 关于与支持 -->
+  <view class="section-title">关于与支持</view>
+  <view class="card">
+    <view class="row nav" bindtap="onGoPrivacy" hover-class="row-hover" aria-role="button">
+      <view class="row-label">隐私政策</view>
+      <view class="row-value">查看</view>
+      <view class="arrow" aria-hidden="true">›</view>
+    </view>
+    <view class="divider"></view>
+    <view class="row nav" bindtap="onGoTerms" hover-class="row-hover" aria-role="button">
+      <view class="row-label">用户协议</view>
+      <view class="row-value">查看</view>
+      <view class="arrow" aria-hidden="true">›</view>
+    </view>
+    <view class="divider"></view>
+    <view class="row nav menu-contact">
+      <view class="row-label">联系客服</view>
+      <view class="row-value"></view>
+      <view class="arrow" aria-hidden="true">›</view>
+      <button class="contact-hit" open-type="contact" aria-label="联系客服"></button>
+    </view>
+    <view class="divider"></view>
+    <view class="row">
+      <view class="row-label">版本</view>
+      <view class="row-value">{{version}}</view>
+    </view>
+  </view>
+
+  <!-- 危险操作 -->
+  <view class="card danger-card">
+    <view class="row nav danger-row" bindtap="onGoAccountDeletion" hover-class="row-hover" aria-role="button">
+      <view class="row-label">账号注销</view>
+      <view class="row-value">申请注销</view>
+      <view class="arrow" aria-hidden="true">›</view>
+    </view>
+    <view class="divider"></view>
+    <view class="row nav" bindtap="onLogout" hover-class="row-hover" aria-role="button">
+      <view class="row-label">退出登录</view>
+      <view class="row-value"></view>
+      <view class="arrow" aria-hidden="true">›</view>
+    </view>
+  </view>
 </view>

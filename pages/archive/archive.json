@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "测肤档案",
   "enablePullDownRefresh": true,
+  "onReachBottomDistance": 120,
   "backgroundTextStyle": "dark"
 }

@@ -9,6 +9,7 @@
       binderror="onCameraError"
     ></camera>
     <view class="face-guide"></view>
+    <view class="camera-flash {{capturing ? 'flash-on' : ''}}"></view>
 
     <!-- 步骤指示：正脸 → 右转 → 左转 → 抬头 -->
     <view class="step-bar">
@@ -39,7 +40,7 @@
 
   <view class="shutter-area">
     <block wx:if="{{showManualBtn || mode === 'manual'}}">
-      <view class="shutter {{capturing ? 'shutter-disabled' : ''}}" bindtap="onShutter">
+      <view class="shutter {{capturing ? 'shutter-disabled' : ''}}" bindtap="onShutter" hover-class="chip-hover" aria-role="button" aria-label="拍摄">
         <view class="shutter-inner"></view>
       </view>
     </block>

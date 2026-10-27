@@ -1,4 +1,4 @@
-<view class="container archive-page">
+<view class="container archive-page safe-bottom">
   <!-- 未登录 -->
   <view wx:if="{{notLoggedIn}}" class="state">
     <view class="text-muted">登录后可查看你的测肤档案</view>
@@ -45,6 +45,7 @@
           wx:key="*this"
           data-range="{{item}}"
           bindtap="onTrendRange"
+          hover-class="chip-hover"
         >近 {{item}} 天</view>
       </view>
 
@@ -68,7 +69,7 @@
         <canvas wx:else type="2d" id="trendCanvas" class="trend-canvas"></canvas>
       </block>
 
-      <view class="more-row" wx:if="{{testsTotal > 0}}" bindtap="onGoHistory">
+      <view class="more-row" wx:if="{{testsTotal > 0}}" bindtap="onGoHistory" hover-class="chip-hover" aria-role="button">
         <text>全部测肤记录</text>
         <text class="more-arrow">›</text>
       </view>
@@ -87,9 +88,15 @@
       </view>
       <view class="band-foot">
         <text class="text-muted">近 30 天</text>
-        <view class="checkin-cta" bindtap="openCheckIn">
+        <view class="checkin-cta" bindtap="openCheckIn" hover-class="chip-hover" aria-role="button">
           <block wx:if="{{manualToday}}">✓ 今日已打卡 · {{manualToday.stateLabel}}</block>
           <block wx:else>今日打卡</block>
+        </view>
+      </view>
+      <view class="band-legend">
+        <view class="legend-item" wx:for="{{stateOptions}}" wx:key="key">
+          <view class="legend-dot" style="background: {{item.color}}"></view>
+          <text>{{item.label}}</text>
         </view>
       </view>
     </view>
@@ -99,7 +106,7 @@
 
     <view class="sec-error" wx:if="{{testsError}}">
       <text class="text-muted">测肤记录加载失败，可能是网络波动</text>
-      <view class="sec-retry" bindtap="onRetryTests">重试</view>
+      <view class="sec-retry" bindtap="onRetryTests" hover-class="chip-hover" aria-role="button">重试</view>
     </view>
 
     <view wx:if="{{testsLoaded && !testsError && !loading && timeline.length === 0}}" class="state text-muted">
@@ -115,6 +122,8 @@
             wx:if="{{day.canBackfill}}"
             data-date="{{day.dateStr}}"
             bindtap="openCheckIn"
+            hover-class="chip-hover"
+            aria-role="button"
           >{{day.isToday ? '打卡' : '补打卡'}}</text>
         </view>
 
@@ -132,12 +141,12 @@
               </view>
               <view class="ev-actions" wx:if="{{!ev.auto}}">
                 <block wx:if="{{confirmingDeleteId === ev.id}}">
-                  <text class="link-danger" data-date="{{ev.dateStr}}" bindtap="onDeleteEntry">确认删除</text>
-                  <text class="link-plain" bindtap="onCancelDelete">取消</text>
+                  <text class="link-danger" data-date="{{ev.dateStr}}" bindtap="onDeleteEntry" hover-class="chip-hover" aria-role="button">确认删除</text>
+                  <text class="link-plain" bindtap="onCancelDelete" hover-class="chip-hover" aria-role="button">取消</text>
                 </block>
                 <block wx:else>
-                  <text class="link" wx:if="{{ev.canEdit}}" data-date="{{ev.dateStr}}" bindtap="openCheckIn">编辑</text>
-                  <text class="link-danger" data-id="{{ev.id}}" bindtap="onDeleteTap">删除</text>
+                  <text class="link" wx:if="{{ev.canEdit}}" data-date="{{ev.dateStr}}" bindtap="openCheckIn" hover-class="chip-hover" aria-role="button">编辑</text>
+                  <text class="link-danger" data-id="{{ev.id}}" bindtap="onDeleteTap" hover-class="chip-hover" aria-role="button">删除</text>
                 </block>
               </view>
             </view>
@@ -145,7 +154,7 @@
 
           <!-- 测肤记录 -->
           <block wx:else>
-            <view class="ev-test card" data-session="{{ev.sessionId}}" bindtap="onOpenTest">
+            <view class="ev-test card" data-session="{{ev.sessionId}}" bindtap="onOpenTest" hover-class="row-hover" aria-role="button" aria-label="查看测肤报告">
               <view class="ev-test-score" wx:if="{{ev.score !== null}}">{{ev.score}}<text class="ev-test-unit">分</text></view>
               <view class="ev-test-score ev-test-empty" wx:else>—</view>
               <view class="ev-test-info">
@@ -157,18 +166,19 @@
         </view>
       </view>
 
-      <view
-        class="load-more text-muted"
-        wx:if="{{testsHasMore || entriesHasMore}}"
-        bindtap="onLoadMore"
-      >{{loadingMore ? '加载中…' : '加载更早'}}</view>
+      <view class="load-more text-muted" wx:if="{{loadingMore}}">加载中…</view>
+      <view class="load-more text-muted" wx:elif="{{testsHasMore || entriesHasMore}}" bindtap="onLoadMore" hover-class="row-hover" aria-role="button">上滑加载更早</view>
+      <view class="load-more text-muted" wx:else>没有更多了</view>
     </block>
   </block>
 
   <!-- 打卡表单（底部弹层） -->
   <view class="sheet-mask" wx:if="{{formOpen}}" bindtap="onFormClose" catchtouchmove="noop">
     <scroll-view scroll-y class="sheet" catchtap="noop">
-      <view class="sheet-title">{{formIsEdit ? '编辑记录' : '打卡'}}</view>
+      <view class="sheet-head">
+        <view class="sheet-title">{{formIsEdit ? '编辑记录' : '打卡'}}</view>
+        <view class="sheet-close" bindtap="onFormClose" hover-class="chip-hover" aria-role="button" aria-label="关闭">✕</view>
+      </view>
 
       <view class="sheet-row">
         <text class="sheet-label">日期</text>
@@ -185,6 +195,9 @@
           wx:key="key"
           data-key="{{item.key}}"
           bindtap="onFormState"
+          hover-class="chip-hover"
+          aria-role="radio"
+          aria-checked="{{formState === item.key}}"
         >
           <view class="state-dot" style="background: {{item.color}}"></view>
           <text>{{item.label}}</text>
@@ -199,6 +212,9 @@
           wx:key="label"
           data-label="{{item.label}}"
           bindtap="onFormTag"
+          hover-class="chip-hover"
+          aria-role="checkbox"
+          aria-checked="{{item.selected}}"
         >{{item.label}}</text>
       </view>
       <view class="tag-row">
@@ -224,8 +240,8 @@
       <button class="btn-primary sheet-save" loading="{{saving}}" disabled="{{saving}}" bindtap="onFormSave">
         {{formIsEdit ? '保存修改' : '打卡'}}
       </button>
-      <view class="sheet-delete" wx:if="{{formIsEdit}}" bindtap="onFormDelete">删除这天的记录</view>
-      <view class="sheet-cancel text-muted" bindtap="onFormClose">取消</view>
+      <view class="sheet-delete" wx:if="{{formIsEdit}}" bindtap="onFormDelete" hover-class="chip-hover" aria-role="button">删除这天的记录</view>
+      <view class="sheet-cancel text-muted" bindtap="onFormClose" hover-class="chip-hover" aria-role="button">取消</view>
     </scroll-view>
   </view>
 </view>

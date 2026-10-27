@@ -1,4 +1,4 @@
-<view class="container legal-page">
+<view class="container legal-page safe-bottom">
   <view class="legal-meta">更新日期：{{doc.updated}}</view>
 
   <view wx:for="{{doc.sections}}" wx:key="heading" class="legal-section">

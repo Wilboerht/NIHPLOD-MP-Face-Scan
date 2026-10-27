@@ -7,8 +7,8 @@
   width: 96rpx;
   height: 96rpx;
   margin: 0 auto 48rpx;
-  border: 8rpx solid #e3dccf;
-  border-top-color: #3D4430;
+  border: 8rpx solid var(--color-border);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -26,14 +26,14 @@
   width: 560rpx;
   height: 12rpx;
   margin: 0 auto;
-  background: #e3dccf;
+  background: var(--color-border);
   border-radius: 999rpx;
   overflow: hidden;
 }
 
 .progress-inner {
   height: 100%;
-  background: #3D4430;
+  background: var(--color-primary);
   border-radius: 999rpx;
   transition: width 0.3s;
 }
@@ -47,8 +47,8 @@
   height: 96rpx;
   margin: 0 auto 40rpx;
   border-radius: 50%;
-  background: #b3543f;
-  color: #fff;
+  background: var(--color-danger);
+  color: #ffffff;
   font-size: 56rpx;
   line-height: 96rpx;
 }

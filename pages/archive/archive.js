@@ -14,11 +14,11 @@ var BACKFILL_DAYS = 90; // 可补打卡窗口（与服务端写入窗口一致�
 
 var STATE_KEYS = ['great', 'good', 'normal', 'bad', 'terrible'];
 var STATE_META = {
-  great: { label: '很好', color: '#4C8055' },
-  good: { label: '不错', color: '#7A9A5B' },
-  normal: { label: '一般', color: '#C9A86C' },
-  bad: { label: '较差', color: '#D9730D' },
-  terrible: { label: '很差', color: '#D44C47' },
+  great: { label: '很好', color: '#3f8f5f' },
+  good: { label: '不错', color: '#6f9a75' },
+  normal: { label: '一般', color: '#b8a992' },
+  bad: { label: '较差', color: '#d08a5a' },
+  terrible: { label: '很差', color: '#c25450' },
 };
 
 // 预置标签（与 H5 CheckInModal 一致）：肌肤表现 + 其他因素
@@ -262,6 +262,10 @@ Page({
     this.loadTests();
   },
 
+  onReachBottom: function () {
+    if (this.data.testsHasMore || this.data.entriesHasMore) this.onLoadMore();
+  },
+
   onLoadMore: function () {
     var self = this;
     if (this.data.loadingMore) return;
@@ -419,7 +423,7 @@ Page({
       var meta = entry ? (STATE_META[entry.skinState] || STATE_META.normal) : null;
       band.push({
         date: date,
-        color: meta ? meta.color : '#ece6da',
+        color: meta ? meta.color : '#efeae4',
         has: !!meta,
         isToday: i === 0,
       });
@@ -615,7 +619,7 @@ Page({
       title: '删除打卡记录',
       content: '删除这天的打卡记录？',
       confirmText: '删除',
-      confirmColor: '#b4553f',
+      confirmColor: '#c25450',
       success: function (res) {
         if (!res.confirm || self._submitting) return;
         self._submitting = true;
