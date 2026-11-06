@@ -1,5 +1,6 @@
 var config = require('../../config.js');
 var request = require('../../utils/request.js').request;
+var auth = require('../../utils/auth.js');
 
 // 前置条件判断（同 H5 Question.dependsOn：equals / notEquals / contains）
 // 另含 H5 questions/page.tsx 的硬编码规则：男性不显示孕期/经期题
@@ -46,10 +47,21 @@ Page({
   },
 
   onLoad: function () {
+    var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
+    if (!agreed || !agreed.consentedAt || agreed.version !== config.PRIVACY_VERSION) {
+      wx.reLaunch({ url: '/pages/index/index' });
+      return;
+    }
     this._advancing = false;
     this._advanceTimer = null;
     this.fetchQuestions();
     this.checkLimit();
+  },
+
+  onShow: function () {
+    if (this.data.limitBlocked && this.data.limitRequireLogin && auth.isLoggedIn()) {
+      this.checkLimit();
+    }
   },
 
   onUnload: function () {
@@ -91,7 +103,15 @@ Page({
       method: 'GET',
       showError: false,
     }).then(function (data) {
-      if (!data || data.canTest) return;
+      if (!data || data.canTest) {
+        self.setData({
+          limitBlocked: false,
+          limitRequireLogin: false,
+          limitTitle: '',
+          limitMessage: '',
+        });
+        return;
+      }
       if (data.accountDisabled) {
         self.setData({
           limitBlocked: true,
@@ -111,7 +131,13 @@ Page({
         limitMessage: data.error || data.message || '今日测试次数已用完，请明天再试。',
       });
     }).catch(function () {
-      // 预检失败不阻塞主流程：analyze 阶段服务端会再次校验（H5 同口径）
+      // 预检失败不阻塞主流程，同时清除上一次登录/限额拦截的残留状态
+      self.setData({
+        limitBlocked: false,
+        limitRequireLogin: false,
+        limitTitle: '',
+        limitMessage: '',
+      });
     });
   },
 
@@ -122,11 +148,15 @@ Page({
     var safeIndex = Math.min(index, visible.length - 1);
     var question = visible[safeIndex] || null;
     var percent = visible.length ? Math.round(((safeIndex + 1) / visible.length) * 100) : 0;
+    var initialDraft = [];
+    if (question && question.type === 'multiple' && Array.isArray(answers[question.fieldName])) {
+      initialDraft = answers[question.fieldName].slice();
+    }
     this.setData({
       visibleQuestions: visible,
       current: safeIndex,
       question: question,
-      multiDraft: [],
+      multiDraft: initialDraft,
       maxSelect: question && question.id === 'primaryConcern' ? 3 : 0,
       progressPercent: percent,
     }, function () {
@@ -177,19 +207,30 @@ Page({
     }, 140);
   },
 
-  // 多选：切换勾选，点"下一题"确认
+  // 多选：切换勾选，点"下一题"确认；过敏题的“没有/不清楚”与具体过敏项互斥
   onMultiTap: function (e) {
     var value = e.currentTarget.dataset.value;
+    var q = this.data.question;
+    var isAllergies = q && q.fieldName === 'allergies';
+    var isExclusive = value === 'none' || value === 'unknown';
     var draft = this.data.multiDraft.slice();
     var idx = draft.indexOf(value);
-    if (idx > -1) {
-      draft.splice(idx, 1);
+    if (isAllergies && isExclusive) {
+      draft = idx > -1 ? [] : [value];
     } else {
-      if (this.data.maxSelect > 0 && draft.length >= this.data.maxSelect) {
-        wx.showToast({ title: '最多选择 ' + this.data.maxSelect + ' 项', icon: 'none' });
-        return;
+      if (isAllergies) {
+        draft = draft.filter(function (item) { return item !== 'none' && item !== 'unknown'; });
+        idx = draft.indexOf(value);
       }
-      draft.push(value);
+      if (idx > -1) {
+        draft.splice(idx, 1);
+      } else {
+        if (this.data.maxSelect > 0 && draft.length >= this.data.maxSelect) {
+          wx.showToast({ title: '最多选择 ' + this.data.maxSelect + ' 项', icon: 'none' });
+          return;
+        }
+        draft.push(value);
+      }
     }
     this.setData({ multiDraft: draft });
     this.refreshDisplayOptions();

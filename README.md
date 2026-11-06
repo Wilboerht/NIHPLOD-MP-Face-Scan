@@ -2,8 +2,8 @@
 
 基于微信小程序的 AI 测肤应用：问卷 + 人脸拍摄 + 云端 AI 分析，生成十维皮肤报告与个性化护肤建议。
 
-- 原生小程序（无框架），基础库 latest，支持 `lazyCodeLoading`
-- 人脸采集使用微信 VisionKit（106 关键点）做实时姿态检测与自动拍摄
+- 原生小程序（无框架），基础库 3.16.2，支持 `lazyCodeLoading`
+- 人脸采集使用微信 VisionKit（106 关键点）做实时姿态检测与自动拍摄；四步姿态仅用于引导/活体流程，实际分析只提交正脸单图
 - 接口与 H5 仓库 `skin-advisor-standalone` 对齐（字段、错误格式、轮询策略）
 
 ## 功能流程
@@ -11,12 +11,12 @@
 ```
 首页 → 微信官方隐私授权（页面展示时）→ 微信一键登录（新用户绑手机号）
   → 问卷答题（性别前置 + dependsOn 条件题 + 次数限额拦截）
-  → 人脸采集（正脸/右转/左转/抬头，VisionKit 自动拍摄）
-  → 人脸图片 base64 提交 face-analyze（失败重试复用 sessionId，不重复扣次）
+  → 人脸采集（正脸/右转/左转/抬头，VisionKit 自动拍摄；四步仅做姿态引导）
+  → 正脸单图 base64 提交 face-analyze（失败重试复用 sessionId，不重复扣次）
   → 提交分析（异步任务，3s 轮询 × 60 = 180s）
   → 测肤报告（雷达图 / 维度明细 / 问题与建议 / 商品推荐 / 证书海报）
   → 历史报告（分页列表 + 详情回看）
-  → 积分商城 / 账号注销入口
+  → 积分商城 / 账号注销入口（短信验证码 + 冷静期）
 ```
 
 ## 页面
@@ -26,13 +26,13 @@
 | 首页 | `pages/index` | 自定义导航栏、官方隐私授权、登录态入口 |
 | 登录 | `pages/login` | 微信一键登录；新用户 `getPhoneNumber` 免短信绑手机号 |
 | 问卷 | `pages/questionnaire` | 动态题目、`dependsOn` 条件显示、测肤次数限额拦截 |
-| 拍摄 | `pages/capture` | 四步姿态引导，VisionKit 106 关键点自动检测与拍摄 |
+| 拍摄 | `pages/capture` | 四步姿态引导，VisionKit 106 关键点自动检测与拍摄；分析只用正脸单图 |
 | 分析中 | `pages/analyzing` | 提交异步分析任务并轮询状态，模拟进度条 |
 | 报告 | `pages/result` | 十维雷达图（canvas 2d）、评分明细、商品推荐、证书海报生成/保存/分享 |
 | 历史 | `pages/history` | 服务端历史报告分页列表，点击回看报告 |
 | 测肤档案 | `pages/archive` | 趋势 / 打卡 / 护肤历程 |
 | 我的 | `pages/profile` | 用户中心：资料 / 手机号 / 密码 / 地址 / 会员用量 / 积分商城 / 账号注销 |
-| 账号注销 | `pages/account-deletion` | 冷静期申请 / 撤回注销 |
+| 账号注销 | `pages/account-deletion` | 短信验证 + 冷静期申请 / 撤回注销 |
 | 法务 | `pages/legal` | 隐私政策 / 用户协议（登录页与首页入口） |
 
 ## 目录结构
@@ -62,7 +62,7 @@
 
 | 域名 | 用途 |
 | --- | --- |
-| `https://nihplod.cn` | 官网主站：登录（`/api/auth/wechat/miniprogram-login`）、token 刷新（`/api/oauth/token`）、撤销（`/api/oauth/revoke`）、资料/地址/密码/换绑、头像上传（`/api/oauth/userinfo/avatar`）、账号注销（`/api/oauth/account/deletion`） |
+| `https://nihplod.cn` | 官网主站：登录（`/api/auth/wechat/miniprogram-login`）、token 刷新（`/api/oauth/token`）、撤销（`/api/oauth/revoke`）、资料/地址/密码/换绑、头像上传（`/api/oauth/userinfo/avatar`）、账号注销（`/api/oauth/account/deletion`，验证码端点 `/api/oauth/account/deletion/send-code`） |
 | `https://smart.nihplod.cn` | 测肤子站：`questions` / `face-analyze` / `analyze` / `session/status` / `advisor/history` / `user/diary` / `user/skin-trends` / `score-percentile` |
 
 鉴权模型：登录拿到 `accessToken` + `refreshToken`，请求层自动注入 `Authorization: Bearer`；token 过期前 5 分钟主动预刷新，401 时静默刷新一次并重试原请求，仅服务端明确拒绝（4xx ≠ 429）才清登录态跳登录页。
@@ -75,6 +75,7 @@
    - `request`：`https://nihplod.cn`、`https://smart.nihplod.cn`
    - `uploadFile`：`https://nihplod.cn`（头像上传）
    - `downloadFile`：`https://smart.nihplod.cn`、`https://nihplod.cn`（证书底图/图片）
+4. 调试注意：`config.js` 当前指向生产域名，开发调试会消耗真实 AI 配额并写入真实账号；如需隔离，请改为测试域名/测试环境。
 
 ## 配置说明
 
@@ -99,5 +100,5 @@
 
 - 首页展示时由微信官方隐私弹窗完成授权；本地记录版本/时间，随 analyze 请求作为 privacyConsent 审计载荷（设备级存储，与账号无关，登出不清除）
 - 登出会清理：token、用户信息、问卷答案、人脸照片路径、皮肤状态、报告缓存、失败分析暂存
-- 人脸图片在前端压缩后以 base64 提交子站 `face-analyze`；头像走主站 `/api/oauth/userinfo/avatar` 专用上传端点
-- 账号注销：用户中心 → 账号注销，走主站冷静期申请/撤回接口
+- 四步拍摄完成后仅保留正脸，正脸图片在前端压缩后以 base64 提交子站 `face-analyze`；侧脸/下巴照片仅用于姿态引导并即时清理；头像走主站 `/api/oauth/userinfo/avatar` 专用上传端点
+- 账号注销：用户中心 → 账号注销，先获取绑定手机号短信验证码，再走主站冷静期申请/撤回接口

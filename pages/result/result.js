@@ -26,6 +26,9 @@ function plainText(text) {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/')
+    .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .trim();
 }
@@ -230,21 +233,30 @@ Page({
     var r = result || {};
     self._rawResult = r;
 
-    var face = r.faceAnalysis || {};
-    var profile = r.skinProfile || {};
-    var analysis = r.analysis || {};
-    var consultant = r.consultantReport || {};
+    var face = r.faceAnalysis && typeof r.faceAnalysis === 'object' ? r.faceAnalysis : {};
+    var profile = (r.skinProfile && typeof r.skinProfile === 'object')
+      ? r.skinProfile
+      : ((r.skinAnalysis && typeof r.skinAnalysis === 'object') ? r.skinAnalysis : {});
+    var analysis = (r.analysis && typeof r.analysis === 'object')
+      ? r.analysis
+      : ((r.skinAnalysis && typeof r.skinAnalysis === 'object') ? r.skinAnalysis : {});
+    var consultant = (r.consultantReport && typeof r.consultantReport === 'object')
+      ? r.consultantReport
+      : {};
 
+    var dims = face.dimensions && typeof face.dimensions === 'object' ? face.dimensions : {};
+    var dimKeys = RADAR_DIM_ORDER.filter(function (key) { return dims[key]; }).concat(
+      Object.keys(dims).filter(function (key) { return RADAR_DIM_ORDER.indexOf(key) === -1; })
+    );
     var dimensionList = [];
-    var dims = face.dimensions || {};
-    Object.keys(dims).forEach(function (key) {
+    dimKeys.forEach(function (key) {
       var d = dims[key] || {};
       dimensionList.push({
         key: key,
         label: util.DIMENSION_LABELS[key] || key,
         score: typeof d.score === 'number' ? Math.round(d.score) : null,
         gradeLabel: util.GRADE_LABELS[d.grade] || '',
-        details: d.details || '',
+        details: plainText(d.details || ''),
       });
     });
 
@@ -256,57 +268,70 @@ Page({
         score: typeof d.score === 'number' ? d.score : 0,
       };
     });
-    var hasRadar = Object.keys(dims).length >= 3;
+    var hasRadar = dimKeys.length >= 3;
 
     var zoneList = [];
-    var zones = face.zoneAnalysis || {};
+    var zones = face.zoneAnalysis && typeof face.zoneAnalysis === 'object' ? face.zoneAnalysis : {};
     Object.keys(zones).forEach(function (key) {
       var z = zones[key] || {};
-      if (!z.condition && !z.advice) return;
+      var condition = plainText(z.condition || '');
+      var advice = plainText(z.advice || '');
+      if (!condition && !advice) return;
       zoneList.push({
         key: key,
         label: util.ZONE_LABELS[key] || key,
-        condition: z.condition || '',
-        advice: z.advice || '',
+        condition: condition,
+        advice: advice,
       });
     });
 
-    var issues = (consultant.issues || []).map(function (i) {
+    var issues = (Array.isArray(consultant.issues) ? consultant.issues : []).map(function (i) {
+      var item = i && typeof i === 'object' ? i : {};
       return {
-        title: i.title || '',
-        severityLabel: util.SEVERITY_LABELS[i.severity] || i.severity || '',
-        observation: i.observation || '',
-        directCauses: i.directCauses || '',
-        skincarePlan: i.skincarePlan || '',
-        lifestylePlan: i.lifestylePlan || '',
-        medicalBoundary: i.medicalBoundary || '',
+        title: plainText(item.title || ''),
+        severityLabel: util.SEVERITY_LABELS[item.severity] || item.severity || '',
+        observation: plainText(item.observation || ''),
+        directCauses: plainText(item.directCauses || ''),
+        skincarePlan: plainText(item.skincarePlan || ''),
+        lifestylePlan: plainText(item.lifestylePlan || ''),
+        medicalBoundary: plainText(item.medicalBoundary || ''),
       };
     });
 
-    var conditions = (face.skinConditions || []).map(function (c) {
+    var conditions = (Array.isArray(face.skinConditions) ? face.skinConditions : []).map(function (c) {
+      var item = c && typeof c === 'object' ? c : {};
       return {
-        condition: c.condition || '',
-        severityLabel: util.SEVERITY_LABELS[c.severity] || c.severity || '',
-        area: c.area || '',
-        description: c.description || '',
+        condition: plainText(item.condition || ''),
+        severityLabel: util.SEVERITY_LABELS[item.severity] || item.severity || '',
+        area: plainText(item.area || ''),
+        description: plainText(item.description || ''),
       };
     });
 
-    var products = (r.products || []).map(self.decorateProduct);
+    var products = (Array.isArray(r.products) ? r.products : []).map(self.decorateProduct);
+    var strengths = (Array.isArray(consultant.strengths) ? consultant.strengths : [])
+      .map(plainText)
+      .filter(Boolean);
+    var skinTypeLabel = profile.typeLabel || profile.skinTypeLabel
+      || (face.skinType && face.skinType.type)
+      || (typeof face.skinType === 'string' ? face.skinType : '')
+      || '';
+    var skinAge = typeof profile.skinAge === 'number' ? profile.skinAge
+      : (face.skinAge && face.skinAge.estimated) || null;
+    var summary = plainText(consultant.overview || analysis.summary || face.summary || '');
 
     self.setData({
       loading: false,
-      nickname: r.nickname || '',
+      nickname: plainText(r.nickname || ''),
       analyzedAt: util.formatTime(r.analyzedAt),
-      skinTypeLabel: profile.typeLabel || (face.skinType && face.skinType.type) || '',
-      skinAge: typeof profile.skinAge === 'number' ? profile.skinAge
-        : (face.skinAge && face.skinAge.estimated) || null,
+      skinTypeLabel: plainText(skinTypeLabel),
+      skinAge: skinAge,
       overallScore: typeof face.overallScore === 'number' ? Math.round(face.overallScore) : null,
-      summary: consultant.overview || analysis.summary || face.summary || '',
+      summary: summary,
       hasRadar: hasRadar,
       dimensionList: dimensionList,
       issues: issues,
-      strengths: consultant.strengths || [],
+      strengths: strengths,
       zoneList: zoneList,
       conditions: conditions,
       products: products,
@@ -363,14 +388,13 @@ Page({
     });
   },
 
-  // 组装海报数据：persona 从结果取（非法值 poster 模块兜底 guardian），
-  // gender 取问卷 answers.gender，缺省回退面部分析的性别
+  // 组装海报数据：persona 与 gender 均取自当前报告，避免历史报告受最新问卷影响
   buildPosterInput: function () {
     var self = this;
     var r = self._rawResult || {};
-    var answers = wx.getStorageSync(KEYS.ANSWERS) || {};
     var face = r.faceAnalysis || {};
-    var gender = answers.gender || (face.gender && face.gender.value) || 'female';
+    var gender = (r.answers && r.answers.gender) || r.gender
+      || (face.gender && face.gender.value) || 'female';
 
     // 建议：与 H5 证书完全一致——取该派系 m7 建议前 2 条标题（内嵌于 utils/poster.js，
     // 不再用顾问报告长句：长句会被 fitText 截断，与 H5 观感不一致）
@@ -446,8 +470,9 @@ Page({
       },
       fail: function (err) {
         var errMsg = (err && err.errMsg) || '';
-        // 相册授权被拒 → 引导去设置页开启（scope.writePhotosAlbum 已在 app.json 声明）
-        if (errMsg.indexOf('auth') > -1 || errMsg.indexOf('deny') > -1 || errMsg.indexOf('cancel') === -1) {
+        if (errMsg.indexOf('cancel') > -1) return;
+        // 相册授权被拒 → 引导去设置页开启；其它失败给出真实提示
+        if (errMsg.indexOf('auth') > -1 || errMsg.indexOf('deny') > -1 || errMsg.indexOf('permission') > -1) {
           wx.showModal({
             title: '需要相册权限',
             content: '请开启「保存到相册」权限后重试',
@@ -456,7 +481,9 @@ Page({
               if (res.confirm) wx.openSetting();
             },
           });
+          return;
         }
+        wx.showToast({ title: '保存失败，请重试', icon: 'none' });
       },
     });
   },

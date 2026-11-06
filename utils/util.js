@@ -1,4 +1,5 @@
 // 通用工具：日期格式化与展示用标签映射（标签口径与 H5 src/lib/advisor-labels.ts 一致）
+var config = require('../config.js');
 
 // 客户端本地日历日 YYYY-MM-DD（analyze 请求 clientDate 字段要求该格式）
 function clientDateStr(d) {
@@ -13,7 +14,7 @@ function clientDateStr(d) {
 function absUrl(url, base) {
   if (!url) return '';
   if (url.charAt(0) === '/') {
-    var origin = base === 'official' ? 'https://nihplod.cn' : 'https://smart.nihplod.cn';
+    var origin = base === 'official' ? config.OFFICIAL_BASE_URL : config.ADVISORY_BASE_URL;
     return origin + url;
   }
   return url;

@@ -3,7 +3,7 @@
   "appid": "wxb52753aa11ed6654",
   "projectname": "肌智派测肤",
   "compileType": "miniprogram",
-  "libVersion": "latest",
+  "libVersion": "3.16.2",
   "setting": {
     "es6": true,
     "enhance": false,

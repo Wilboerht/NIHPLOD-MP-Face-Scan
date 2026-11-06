@@ -37,12 +37,9 @@ function finishLogin() {
       wx.reLaunch({ url: '/pages/index/index' });
     }
   }
-  var app = getApp();
-  if (app && app.syncPrivacyConsent) {
-    app.syncPrivacyConsent().then(navigate, navigate);
-    return;
-  }
   navigate();
+  var app = getApp();
+  if (app && app.syncPrivacyConsent) app.syncPrivacyConsent();
 }
 
 Page({

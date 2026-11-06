@@ -133,7 +133,8 @@ function handleAccountDisabled(data) {
 function shouldRefreshBeforeSend() {
   var token = wx.getStorageSync(config.STORAGE_KEYS.ACCESS_TOKEN) || '';
   var refreshToken = wx.getStorageSync(config.STORAGE_KEYS.REFRESH_TOKEN) || '';
-  if (!token || !refreshToken) return false;
+  if (!refreshToken) return false;
+  if (!token) return true;
   var expiresAt = Number(wx.getStorageSync(config.STORAGE_KEYS.TOKEN_EXPIRES_AT)) || 0;
   return expiresAt > 0 && Date.now() >= expiresAt;
 }
@@ -150,6 +151,7 @@ function handleResponse(res, showError, base) {
       var advisoryError = new Error(advisoryMessage);
       advisoryError.statusCode = 403;
       advisoryError.data = data;
+      advisoryError.headers = res.header || {};
       advisoryError.isAdvisoryDisabled = true;
       if (showError) {
         wx.showToast({ title: String(advisoryMessage).slice(0, 28), icon: 'none', duration: 2500 });
@@ -157,12 +159,15 @@ function handleResponse(res, showError, base) {
       throw advisoryError;
     }
     // 主站账号被禁用：清会话 + 全局回登录页
-    throw handleAccountDisabled(data);
+    var disabledError = handleAccountDisabled(data);
+    disabledError.headers = res.header || {};
+    throw disabledError;
   }
   var message = extractErrorMessage(data, '请求失败（' + res.statusCode + '）');
   var error = new Error(message);
   error.statusCode = res.statusCode;
   error.data = data;
+  error.headers = res.header || {};
   // 游客限额等场景的登录引导标记（H5 返回 requireLogin: true）
   if (data && data.requireLogin) error.requireLogin = true;
   if (showError) {
@@ -180,7 +185,7 @@ function handleResponse(res, showError, base) {
  * }
  */
 function request(options) {
-  var opts = options || {};
+  var opts = Object.assign({}, options || {});
   var skipAuth = !!opts.skipAuth;
   var showError = opts.showError !== false;
   // 区分主站/子站错误语义：子站 ACCOUNT_DISABLED 只限制测肤，不清主站登录态
@@ -198,8 +203,9 @@ function request(options) {
   // 登录态确实失效：清会话 + 跳登录，返回统一错误
   function sessionExpiredError() {
     var auth = require('./auth.js');
+    var wasLoggedIn = auth.isLoggedIn();
     auth.clearSession();
-    redirectToLogin();
+    if (wasLoggedIn || !auth.isRecentLogout()) redirectToLogin();
     var err = new Error('登录已过期，请重新登录');
     err.statusCode = 401;
     return err;
@@ -210,6 +216,7 @@ function request(options) {
   var preflight = Promise.resolve();
   if (!skipAuth && shouldRefreshBeforeSend()) {
     preflight = doRefresh().catch(function (err) {
+      if (err && err.isSessionStale) throw err;
       if (err && err.isRefreshRejected) throw sessionExpiredError();
     });
   }
@@ -243,6 +250,8 @@ function request(options) {
 module.exports = {
   request: request,
   rawRequest: rawRequest,
+  refreshSession: doRefresh,
+  redirectToLogin: redirectToLogin,
   extractErrorMessage: extractErrorMessage,
   isAccountDisabledData: isAccountDisabledData,
   handleAccountDisabled: handleAccountDisabled,

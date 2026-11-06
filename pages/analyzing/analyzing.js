@@ -11,6 +11,17 @@ var POLL_MAX_ATTEMPTS = 60;
 // 服务端按 sessionId 复用 TestRecord 预占，不重复扣测肤次数/AI 调用
 var PENDING_TTL_MS = 30 * 60 * 1000;
 
+function pollDelay(err) {
+  if (!err || err.statusCode !== 429) return POLL_INTERVAL_MS;
+  var headers = err.headers || {};
+  var reset = Number(headers['X-RateLimit-Reset'] || headers['x-ratelimit-reset']);
+  if (reset > 0) {
+    var wait = reset * 1000 - Date.now();
+    if (wait > 0) return Math.min(30000, Math.max(POLL_INTERVAL_MS, wait));
+  }
+  return 10000;
+}
+
 // 稳定序列化：答案对象 key 顺序不影响指纹
 function stableStringify(value) {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -40,6 +51,13 @@ Page({
     this._sessionId = '';
     this._faceAnalysis = null;
     this._pendingFingerprint = '';
+    if (!auth.isLoggedIn()) {
+      this.setData({ running: false, error: '请先登录后开始分析', stageText: '分析未完成' });
+      setTimeout(function () {
+        wx.reLaunch({ url: '/pages/index/index' });
+      }, 1200);
+      return;
+    }
     this.run();
   },
 
@@ -57,7 +75,17 @@ Page({
   ensureConsent: function () {
     var app = getApp();
     if (!app || !app.syncPrivacyConsent) return Promise.resolve(true);
-    return app.syncPrivacyConsent();
+    function attempt() {
+      return app.syncPrivacyConsent();
+    }
+    return attempt().then(function (ok) {
+      if (ok) return true;
+      var err = app.getPrivacyConsentError && app.getPrivacyConsentError();
+      if (err && err.statusCode === 409) return false;
+      return new Promise(function (resolve) {
+        setTimeout(resolve, 500);
+      }).then(attempt);
+    });
   },
 
   // 模拟进度条：阶段跳变 + 缓慢填充（避免卡在 99%）
@@ -85,7 +113,9 @@ Page({
         return false;
       }
       this._sessionId = pending.sessionId;
-      this._faceAnalysis = pending.faceAnalysis || null;
+      this._faceAnalysis = (pending.faceAnalysis && pending.faceAnalysis.status !== 'analyzing')
+        ? pending.faceAnalysis
+        : null;
       return true;
     } catch (e) {
       return false;
@@ -130,6 +160,10 @@ Page({
 
     var skinState = wx.getStorageSync(KEYS.SKIN_STATE) || undefined;
     var faceImagePath = wx.getStorageSync(KEYS.FACE_IMAGE_PATH) || '';
+    if (!faceImagePath) {
+      self.fail('照片数据缺失，请返回重拍');
+      return;
+    }
     var fingerprint = buildFingerprint(answers, skinState, faceImagePath);
 
     // 同一份答案 + 同一张照片：复用上次失败会话；否则开新会话
@@ -151,7 +185,11 @@ Page({
 
     var facePromise = self.ensureConsent().then(function (consentOk) {
       if (!consentOk) {
-        throw new Error('隐私授权同步失败，请返回首页重新同意隐私政策');
+        var consentError = getApp().getPrivacyConsentError && getApp().getPrivacyConsentError();
+        if (consentError && consentError.statusCode === 409) {
+          throw new Error('隐私政策已更新，请更新小程序后重试');
+        }
+        throw new Error('隐私授权同步失败，请检查网络后重试，或返回首页重新同意隐私政策');
       }
       if (self._faceAnalysis) {
         // 上一次 face-analyze 已成功：跳过视觉调用，直接用缓存结果继续 analyze
@@ -177,6 +215,11 @@ Page({
             skinState: skinState,
           },
         }).then(function (faceAnalysis) {
+          if (faceAnalysis && faceAnalysis.status === 'analyzing') {
+            self._faceAnalysis = null;
+            self.savePending();
+            return null;
+          }
           self._faceAnalysis = faceAnalysis || null;
           self.savePending();
           return faceAnalysis;
@@ -226,6 +269,15 @@ Page({
         // 本地缓存只是加速回看；存储配额满时不能影响成功页跳转
         try { wx.setStorageSync(KEYS.RESULT_PREFIX + sessionId, result); } catch (e) {}
         try { wx.setStorageSync(KEYS.LATEST_SESSION, sessionId); } catch (e) {}
+        try {
+          var cacheKeys = wx.getStorageInfoSync().keys || [];
+          for (var ci = 0; ci < cacheKeys.length; ci++) {
+            if (cacheKeys[ci].indexOf(KEYS.RESULT_PREFIX) === 0 &&
+                cacheKeys[ci] !== KEYS.RESULT_PREFIX + sessionId) {
+              wx.removeStorageSync(cacheKeys[ci]);
+            }
+          }
+        } catch (e) {}
         self.clearPending();
         // 分析完成：本地不再需要人脸照片路径（报告/证书均不依赖）
         try { wx.removeStorageSync(KEYS.FACE_IMAGE_PATH); } catch (e) {}
@@ -241,14 +293,22 @@ Page({
       })
       .catch(function (err) {
         if (self._finished) return;
+        if (err && err.statusCode === 409 && self._sessionId) {
+          self._finished = true;
+          self._running = false;
+          self.stopTimers();
+          if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
+          self.clearPending();
+          wx.reLaunch({ url: '/pages/result/result?sessionId=' + self._sessionId });
+          return;
+        }
         self.fail((err && err.message) || '分析失败，请重试');
       });
   },
 
-  // 读本地照片为 base64 data URL；无照片（或读取失败）→ null，降级为纯问卷分析
-  // 超过服务端单张上限时再做一次更小尺寸压缩，仍超限则明确提示用户
+  // 读本地照片为 base64 data URL；缺失、读取失败或二次压缩后仍超限时阻断并要求重拍
   readImageAsBase64: function (filePath) {
-    if (!filePath) return Promise.resolve(null);
+    if (!filePath) return Promise.reject(new Error('照片数据缺失，请返回重拍'));
 
     function readBase64(path) {
       return new Promise(function (resolve) {
@@ -274,10 +334,7 @@ Page({
     }
 
     return readBase64(filePath).then(function (base64) {
-      if (!base64) {
-        wx.showToast({ title: '照片读取失败，本次仅按问卷分析', icon: 'none', duration: 2500 });
-        return null;
-      }
+      if (!base64) throw new Error('照片读取失败，请返回重拍');
       // 服务端单张上限约 1.1MB base64（MAX_IMAGE_BASE64_CHARS=1500000）
       if (base64.length <= 1400000) return 'data:image/jpeg;base64,' + base64;
 
@@ -288,8 +345,7 @@ Page({
         })
         .then(function (retryBase64) {
           if (!retryBase64 || retryBase64.length > 1400000) {
-            wx.showToast({ title: '照片过大，本次仅按问卷分析', icon: 'none', duration: 2500 });
-            return null;
+            throw new Error('照片过大，请返回重拍');
           }
           return 'data:image/jpeg;base64,' + retryBase64;
         });
@@ -332,12 +388,16 @@ Page({
             reject(new Error('会话不存在或无权访问'));
             return;
           }
-          // 网络抖动时继续轮询，不轻易失败
+          if (err && err.statusCode === 401) {
+            reject(new Error('登录已过期，请重新登录'));
+            return;
+          }
+          // 网络抖动/限流时继续轮询，不轻易失败
           if (attempt >= POLL_MAX_ATTEMPTS) {
             reject(err);
             return;
           }
-          self._pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
+          self._pollTimer = setTimeout(tick, pollDelay(err));
         });
       }
       tick();

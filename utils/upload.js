@@ -165,13 +165,12 @@ function uploadAvatar(filePath) {
   return send().catch(function (err) {
     if (!err || !err.needRefresh) throw err;
     var auth = require('./auth.js');
-    return auth.refresh().then(send).catch(function (retryErr) {
+    return requestMod.refreshSession().then(send).catch(function (retryErr) {
       if (retryErr && (retryErr.isRefreshRejected || retryErr.statusCode === 401)) {
-        auth.clearSession();
-        wx.showToast({ title: '登录已过期，请重新登录', icon: 'none' });
-        setTimeout(function () {
-          wx.reLaunch({ url: '/pages/login/login' });
-        }, 600);
+        if (!auth.isRecentLogout()) {
+          auth.clearSession();
+          requestMod.redirectToLogin('登录已过期，请重新登录');
+        }
       }
       throw retryErr || err;
     });

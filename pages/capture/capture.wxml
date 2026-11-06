@@ -39,11 +39,14 @@
   </view>
 
   <view class="shutter-area">
-    <block wx:if="{{showManualBtn || mode === 'manual'}}">
+    <block wx:if="{{cameraReady}}">
+      <block wx:if="{{showManualBtn || mode === 'manual'}}">
       <view class="shutter {{capturing ? 'shutter-disabled' : ''}}" bindtap="onShutter" hover-class="chip-hover" aria-role="button" aria-label="拍摄">
         <view class="shutter-inner"></view>
       </view>
     </block>
-    <view wx:else class="auto-tip text-muted">识别到姿态后将自动拍摄</view>
+      <view wx:else class="auto-tip text-muted">识别到姿态后将自动拍摄</view>
+    </block>
+    <view wx:else class="auto-tip text-muted">相机不可用，请检查摄像头权限</view>
   </view>
 </view>

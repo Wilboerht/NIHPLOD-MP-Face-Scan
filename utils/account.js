@@ -18,7 +18,7 @@ function fetchProfile() {
 function normalizeProfile(data) {
   var d = data || {};
   var avatar = d.avatar || '';
-  if (avatar.charAt(0) === '/') avatar = 'https://nihplod.cn' + avatar;
+  if (avatar.charAt(0) === '/') avatar = config.OFFICIAL_BASE_URL + avatar;
   var phone = d.phone || d.phone_number || '';
   return {
     nickname: d.nickname || '',

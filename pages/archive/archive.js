@@ -110,8 +110,10 @@ Page({
   },
 
   onShow: function () {
-    // "今天"快照：每次进入刷新（跨午夜口径与 H5 一致）
+    // "今天"快照：每次进入刷新；跨午夜后同步刷新依赖日历日的视图与统计
     var todayStr = util.clientDateStr(new Date());
+    var dateChanged = !!this._todayStr && this._todayStr !== todayStr;
+    this._todayStr = todayStr;
     this.setData({
       todayStr: todayStr,
       minDate: addDays(todayStr, -BACKFILL_DAYS),
@@ -126,6 +128,9 @@ Page({
       this.loadEntries();
       this.loadTrends();
       this.loadTests();
+    } else if (dateChanged) {
+      this.loadEntries();
+      this.loadTrends();
     }
   },
 
@@ -168,19 +173,23 @@ Page({
     });
   },
 
-  // 打卡/删除后的轻量刷新：带回已加载数量（不多拉一页）
+  // 打卡/删除后的轻量刷新：只刷新首屏，保留已加载的更早记录
   reloadEntries: function () {
     var self = this;
-    var limit = Math.max(ENTRIES_PAGE_SIZE, this.data.entries.length || 0);
+    var limit = Math.min(50, Math.max(ENTRIES_PAGE_SIZE, this.data.entries.length || 0));
     return request({
       base: 'advisory',
       url: '/api/user/diary?bootstrap=1&limit=' + limit,
       method: 'GET',
       showError: false,
     }).then(function (res) {
-      var list = (res && res.data) || [];
+      var fresh = (res && res.data) || [];
+      var oldestFresh = fresh.length ? fresh[fresh.length - 1].date : '';
+      var older = oldestFresh
+        ? (self.data.entries || []).filter(function (entry) { return entry.date < oldestFresh; })
+        : [];
       self.setData({
-        entries: list,
+        entries: fresh.concat(older),
         summary: (res && res.summary) || self.data.summary,
         entriesHasMore: !!(res && res.pagination && res.pagination.hasMore),
       });
@@ -188,6 +197,15 @@ Page({
     }).catch(function () {
       account.toast('列表刷新失败，请稍后再试');
     });
+  },
+
+  removeEntryDate: function (dateStr) {
+    var target = String(dateStr || '').slice(0, 10);
+    var entries = (this.data.entries || []).filter(function (entry) {
+      return entry.date.slice(0, 10) !== target;
+    });
+    this.setData({ entries: entries });
+    this.buildViews();
   },
 
   loadTrends: function () {
@@ -600,6 +618,20 @@ Page({
     }).then(function (res) {
       self._submitting = false;
       self.setData({ saving: false, formOpen: false });
+      var entry = res && res.data;
+      if (entry && entry.id) {
+        var list = self.data.entries.slice();
+        var replaced = false;
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id === entry.id) {
+            list[i] = entry;
+            replaced = true;
+            break;
+          }
+        }
+        if (!replaced) list.unshift(entry);
+        self.setData({ entries: list });
+      }
       var granted = res && res.points && res.points.granted;
       wx.showToast({
         title: granted ? '打卡成功 +' + granted + ' 积分' : (self.data.formIsEdit ? '已保存' : '打卡成功'),
@@ -632,6 +664,7 @@ Page({
         }).then(function () {
           self._submitting = false;
           self.setData({ saving: false, formOpen: false });
+          self.removeEntryDate(self.data.formDate);
           wx.showToast({ title: '记录已删除', icon: 'none' });
           self.reloadEntries();
         }).catch(function () {
@@ -668,6 +701,7 @@ Page({
     }).then(function () {
       self._deleting = false;
       self.setData({ confirmingDeleteId: '' });
+      self.removeEntryDate(dateStr);
       wx.showToast({ title: '记录已删除', icon: 'none' });
       self.reloadEntries();
     }).catch(function () {

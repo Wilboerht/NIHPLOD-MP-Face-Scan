@@ -1,6 +1,8 @@
+var config = require('../../config.js');
 var request = require('../../utils/request.js').request;
 var auth = require('../../utils/auth.js');
 var util = require('../../utils/util.js');
+var subscribe = require('../../utils/subscribe.js');
 
 var PAGE_SIZE = 20;
 
@@ -106,7 +108,14 @@ Page({
   },
 
   onGoQuestionnaire: function () {
-    wx.navigateTo({ url: '/pages/questionnaire/questionnaire' });
+    var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
+    if (!agreed || !agreed.consentedAt || agreed.version !== config.PRIVACY_VERSION) {
+      wx.reLaunch({ url: '/pages/index/index' });
+      return;
+    }
+    subscribe.requestSubscription(function () {
+      wx.navigateTo({ url: '/pages/questionnaire/questionnaire' });
+    });
   },
 
   onRetry: function () {

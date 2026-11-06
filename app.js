@@ -1,5 +1,7 @@
 var config = require('./config.js');
 
+var lastConsentError = null;
+
 App({
   globalData: {},
 
@@ -25,13 +27,15 @@ App({
 
   // 将微信平台隐私授权同步到测肤子站（服务端 analyze/face-analyze 强校验）
   syncPrivacyConsent: function () {
+    lastConsentError = null;
     var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
     if (!agreed || !agreed.consentedAt || agreed.version !== config.PRIVACY_VERSION) {
       return Promise.resolve(false);
     }
 
     var token = wx.getStorageSync(config.STORAGE_KEYS.ACCESS_TOKEN) || '';
-    if (!token) return Promise.resolve(false);
+    var refreshToken = wx.getStorageSync(config.STORAGE_KEYS.REFRESH_TOKEN) || '';
+    if (!token && !refreshToken) return Promise.resolve(false);
 
     var request = require('./utils/request.js').request;
     return request({
@@ -46,8 +50,13 @@ App({
       },
     }).then(function () {
       return true;
-    }).catch(function () {
+    }).catch(function (err) {
+      lastConsentError = err || null;
       return false;
     });
+  },
+
+  getPrivacyConsentError: function () {
+    return lastConsentError;
   },
 });

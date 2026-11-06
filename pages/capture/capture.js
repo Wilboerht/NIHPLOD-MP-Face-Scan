@@ -1,5 +1,6 @@
 var config = require('../../config.js');
 var util = require('../../utils/util.js');
+var auth = require('../../utils/auth.js');
 
 // ============================================================================
 // 真机校准开关
@@ -119,16 +120,29 @@ Page({
     this._capturing = false;      // takePhoto 在途标记（普通变量，避免 setData 竞态）
     this._multiFace = false;      // 当前帧是否检测到多张人脸（阻断自动/手动拍摄）
     this._inited = false;
+    this._completed = false;      // 四步拍完已进入分析页；返回本页时重置流程
+
+    if (!auth.isLoggedIn()) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      setTimeout(function () {
+        wx.reLaunch({ url: '/pages/index/index' });
+      }, 800);
+      return;
+    }
 
     this.applyStep(0);
   },
 
   onReady: function () {
+    if (!auth.isLoggedIn()) return;
     this._cameraCtx = wx.createCameraContext();
     this.initVK();
   },
 
   onShow: function () {
+    if (this._completed) {
+      this.resetFlow();
+    }
     // 从后台返回：恢复帧监听（VK 存活时）
     if (this._inited && this._vk && this.data.mode === 'auto') {
       this.startFrameLoop();
@@ -155,6 +169,42 @@ Page({
       clearTimeout(this._manualTimer);
       this._manualTimer = null;
     }
+    this.deleteTempPhotos();
+  },
+
+  resetFlow: function () {
+    this._completed = false;
+    this._capturing = false;
+    this._stableCount = 0;
+    this._multiFace = false;
+    this._lastTilt = null;
+    this._baselineTilt = null;
+    if (this._manualTimer) {
+      clearTimeout(this._manualTimer);
+      this._manualTimer = null;
+    }
+    this.deleteTempPhotos();
+    this._photos = {};
+    try { wx.removeStorageSync(config.STORAGE_KEYS.FACE_IMAGE_PATH); } catch (e) {}
+    try { wx.removeStorageSync(config.STORAGE_KEYS.FACE_IMAGE_SIDE_PATHS); } catch (e) {}
+    try { wx.removeStorageSync(config.STORAGE_KEYS.PENDING_ANALYSIS); } catch (e) {}
+    this.setData({ capturing: false });
+    this.applyStep(0);
+  },
+
+  deleteTempPhotos: function (keys) {
+    var photos = this._photos || {};
+    var list = keys || Object.keys(photos);
+    var fs = wx.getFileSystemManager && wx.getFileSystemManager();
+    if (!fs) return;
+    for (var i = 0; i < list.length; i++) {
+      var path = photos[list[i]];
+      if (!path) continue;
+      try {
+        fs.unlink({ filePath: path, fail: function () {} });
+      } catch (e) {}
+    }
+    if (!keys) this._photos = {};
   },
 
   // VisionKit 初始化与降级
@@ -431,17 +481,26 @@ Page({
 
   doCapture: function () {
     var self = this;
+    if (!self.data.cameraReady) {
+      wx.showToast({ title: '相机不可用，请检查摄像头权限', icon: 'none' });
+      return;
+    }
     if (self._capturing || !self._cameraCtx) return;
     if (self._multiFace) {
       wx.showToast({ title: '画面中只能有一个人', icon: 'none' });
       return;
     }
+    var step = STEP_ORDER[self.data.stepIndex];
     self._capturing = true;
     self.setData({ capturing: true });
 
     self._cameraCtx.takePhoto({
-      quality: 'high',
+      quality: step === 'front' ? 'high' : 'normal',
       success: function (res) {
+        if (step !== 'front') {
+          self.onStepPhoto(res.tempImagePath);
+          return;
+        }
         self.compressPhoto(res.tempImagePath, function (path) {
           self.onStepPhoto(path);
         });
@@ -497,9 +556,30 @@ Page({
     }
     // 只持久化正脸（analyze 只用正脸）；侧脸/下巴仅用于本页姿态流程，
     // 不再写入 storage，避免敏感照片路径长期留存
-    wx.setStorageSync(config.STORAGE_KEYS.FACE_IMAGE_PATH, photos.front);
-    wx.setStorageSync(config.STORAGE_KEYS.SKIN_STATE, this.data.skinState);
-    wx.navigateTo({ url: '/pages/analyzing/analyzing' });
+    this._completed = true;
+    this.stopFrameLoop();
+    if (this._manualTimer) {
+      clearTimeout(this._manualTimer);
+      this._manualTimer = null;
+    }
+    this.deleteTempPhotos(['right', 'left', 'chin']);
+    try {
+      wx.setStorageSync(config.STORAGE_KEYS.FACE_IMAGE_PATH, photos.front);
+      wx.setStorageSync(config.STORAGE_KEYS.SKIN_STATE, this.data.skinState);
+    } catch (e) {
+      this._completed = false;
+      this.setData({ capturing: false });
+      wx.showToast({ title: '照片保存失败，请重试', icon: 'none' });
+      return;
+    }
+    var self = this;
+    wx.navigateTo({
+      url: '/pages/analyzing/analyzing',
+      fail: function () {
+        self._completed = false;
+        wx.showToast({ title: '打开分析页失败，请重试', icon: 'none' });
+      },
+    });
   },
 
   // --------------------------------------------------------------------------
@@ -507,10 +587,12 @@ Page({
   // --------------------------------------------------------------------------
 
   onInitDone: function () {
-    // camera 初始化完成回调
+    this.setData({ cameraReady: true });
+    if (this._inited && this._vk && this.data.mode === 'auto') this.startFrameLoop();
   },
 
   onCameraError: function (e) {
+    var self = this;
     var detail = (e && e.detail) || {};
     var errMsg = detail.errMsg || '';
     this.setData({ cameraReady: false });
@@ -520,7 +602,20 @@ Page({
         content: '请开启摄像头权限后拍摄面部照片进行肤质分析',
         confirmText: '去开启',
         success: function (res) {
-          if (res.confirm) wx.openSetting();
+          if (!res.confirm) return;
+          wx.openSetting({
+            success: function (settings) {
+              if (!settings.authSetting || !settings.authSetting['scope.camera']) return;
+              self.setData({ cameraReady: true });
+              if (!self._cameraCtx) self._cameraCtx = wx.createCameraContext();
+              if (self._vk) {
+                if (self.data.mode === 'auto') self.startFrameLoop();
+              } else {
+                self.setData({ mode: 'auto', showManualBtn: false });
+                self.initVK();
+              }
+            },
+          });
         },
       });
     } else {

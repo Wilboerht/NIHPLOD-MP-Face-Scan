@@ -2,6 +2,7 @@
 // GET 查询进行中申请 / POST 提交（冷静期）/ DELETE 撤回
 var request = require('../../utils/request.js').request;
 var auth = require('../../utils/auth.js');
+var account = require('../../utils/account.js');
 var util = require('../../utils/util.js');
 
 var SERVICE_EMAIL = 'service@nihplod.cn';
@@ -13,6 +14,10 @@ Page({
     request: null,
     warnings: [],
     reason: '',
+    smsCode: '',
+    codeSending: false,
+    codeCountdown: 0,
+    codeSent: false,
     confirmed: false,
     submitting: false,
     error: '',
@@ -22,7 +27,15 @@ Page({
   onLoad: function () {
     this._loaded = false;
     this._submitting = false;
+    this._cdTimer = null;
     this.check();
+  },
+
+  onUnload: function () {
+    if (this._cdTimer) {
+      clearInterval(this._cdTimer);
+      this._cdTimer = null;
+    }
   },
 
   onShow: function () {
@@ -55,6 +68,7 @@ Page({
         loading: false,
         loggedIn: true,
         request: data.request ? self.decorate(data.request) : null,
+        warnings: Array.isArray(data.warnings) ? data.warnings : [],
       });
     }).catch(function (err) {
       if (err && err.statusCode === 401) {
@@ -73,6 +87,55 @@ Page({
     });
   },
 
+  startCodeCountdown: function () {
+    var self = this;
+    if (this._cdTimer) clearInterval(this._cdTimer);
+    this.setData({ codeCountdown: 60 });
+    this._cdTimer = setInterval(function () {
+      var c = self.data.codeCountdown > 0 ? self.data.codeCountdown - 1 : 0;
+      self.setData({ codeCountdown: c });
+      if (c <= 0) {
+        clearInterval(self._cdTimer);
+        self._cdTimer = null;
+      }
+    }, 1000);
+  },
+
+  stopCodeCountdown: function () {
+    if (this._cdTimer) {
+      clearInterval(this._cdTimer);
+      this._cdTimer = null;
+    }
+    this.setData({ codeCountdown: 0 });
+  },
+
+  onSmsCodeInput: function (e) {
+    this.setData({
+      smsCode: String(e.detail.value || '').replace(/\D/g, '').slice(0, 6),
+      error: '',
+    });
+  },
+
+  onSendCode: function () {
+    var self = this;
+    if (this.data.codeSending || this.data.codeCountdown > 0) return;
+    this.setData({ codeSending: true, error: '' });
+    request({
+      base: 'official',
+      url: '/api/oauth/account/deletion/send-code',
+      method: 'POST',
+      data: {},
+      showError: false,
+    }).then(function () {
+      self.setData({ codeSending: false, codeSent: true });
+      self.startCodeCountdown();
+      wx.showToast({ title: '验证码已发送', icon: 'none' });
+    }).catch(function (err) {
+      self.setData({ codeSending: false, codeSent: false });
+      account.toast((err && err.message) || '验证码发送失败，请稍后重试');
+    });
+  },
+
   onReasonInput: function (e) {
     this.setData({ reason: e.detail.value || '', error: '' });
   },
@@ -86,6 +149,10 @@ Page({
     if (this._submitting) return;
     if (!this.data.confirmed) {
       wx.showToast({ title: '请先勾选确认', icon: 'none' });
+      return;
+    }
+    if (!/^\d{6}$/.test(this.data.smsCode)) {
+      wx.showToast({ title: '请输入 6 位短信验证码', icon: 'none' });
       return;
     }
     wx.showModal({
@@ -105,21 +172,26 @@ Page({
     this._submitting = true;
     this.setData({ submitting: true, error: '' });
     var reason = (this.data.reason || '').trim();
+    var payload = { smsCode: this.data.smsCode };
+    if (reason) payload.reason = reason;
     request({
       base: 'official',
       url: '/api/oauth/account/deletion',
       method: 'POST',
-      data: reason ? { reason: reason } : {},
+      data: payload,
       showError: false,
     }).then(function (res) {
       self._submitting = false;
       var data = (res && res.data) || {};
+      self.stopCodeCountdown();
       self.setData({
         submitting: false,
         request: data.request ? self.decorate(data.request) : null,
         warnings: Array.isArray(data.warnings) ? data.warnings : [],
         confirmed: false,
         reason: '',
+        smsCode: '',
+        codeSent: false,
       });
       wx.showToast({ title: '已提交注销申请', icon: 'success' });
     }).catch(function (err) {

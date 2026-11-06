@@ -6,6 +6,8 @@ var config = require('../config.js');
 var rawRequest = require('./request.js').rawRequest;
 
 var KEYS = config.STORAGE_KEYS;
+var sessionEpoch = 0;
+var loggedOutAt = 0;
 
 function wxLogin() {
   return new Promise(function (resolve, reject) {
@@ -21,6 +23,8 @@ function wxLogin() {
 
 // 保存登录会话（响应 data 字段：accessToken / refreshToken / expiresIn / user / needBinding / bindToken）
 function saveSession(data) {
+  sessionEpoch += 1;
+  loggedOutAt = 0;
   wx.setStorageSync(KEYS.ACCESS_TOKEN, data.accessToken || '');
   if (data.refreshToken) wx.setStorageSync(KEYS.REFRESH_TOKEN, data.refreshToken);
   var expiresIn = Number(data.expiresIn) || 7200;
@@ -31,7 +35,7 @@ function saveSession(data) {
     var u = data.user;
     var rawAvatar = u.avatarUrl || u.avatar || '';
     // 服务端可能返回相对路径（/uploads/...），补全为绝对地址（官网域名，头像存在官网）
-    if (rawAvatar.charAt(0) === '/') rawAvatar = 'https://nihplod.cn' + rawAvatar;
+    if (rawAvatar.charAt(0) === '/') rawAvatar = config.OFFICIAL_BASE_URL + rawAvatar;
     wx.setStorageSync(KEYS.USER_INFO, {
       id: u.id,
       name: u.name || u.nickname || '',
@@ -67,12 +71,14 @@ function login() {
     }
     // needBinding=true 时无 accessToken：新用户需先一键绑手机号（bindToken 已存）
     if (body.data.needBinding) {
+      clearSession({ preservePendingRoute: true });
       saveSession(body.data);
       return body.data;
     }
     if (!body.data.accessToken) {
       throw new Error('登录失败，请重试');
     }
+    clearSession({ preservePendingRoute: true });
     saveSession(body.data);
     return body.data;
   });
@@ -97,6 +103,7 @@ function bindPhoneAndLogin(phoneCode) {
       var msg = (body.error && body.error.message) || body.error || '绑定失败，请重试';
       throw new Error(typeof msg === 'string' ? msg : '绑定失败，请重试');
     }
+    clearSession({ preservePendingRoute: true });
     saveSession(body.data);
     return body.data;
   });
@@ -113,6 +120,7 @@ function refresh() {
     emptyErr.isRefreshRejected = true; // 无凭证可恢复：按登录失效处理
     return Promise.reject(emptyErr);
   }
+  var epoch = sessionEpoch;
   return rawRequest({
     base: 'official',
     url: '/api/oauth/token',
@@ -136,6 +144,11 @@ function refresh() {
         res.statusCode >= 400 && res.statusCode < 500 && res.statusCode !== 429;
       throw err;
     }
+    if (epoch !== sessionEpoch) {
+      var staleErr = new Error('登录状态已变更');
+      staleErr.isSessionStale = true;
+      throw staleErr;
+    }
     saveSession({
       accessToken: accessToken,
       refreshToken: payload.refreshToken || payload.refresh_token || refreshToken,
@@ -149,7 +162,9 @@ function refresh() {
 
 // 清除本地登录态与个人敏感缓存（人脸照片路径 / 问卷答案 / 报告缓存 / 最近会话）
 // 保留 PRIVACY_AGREED：隐私同意是设备级状态，与账号无关
-function clearSession() {
+// 新登录可保留 PENDING_ROUTE，确保登录成功后仍能返回原受保护页面
+function clearSession(options) {
+  sessionEpoch += 1;
   wx.removeStorageSync(KEYS.ACCESS_TOKEN);
   wx.removeStorageSync(KEYS.REFRESH_TOKEN);
   wx.removeStorageSync(KEYS.TOKEN_EXPIRES_AT);
@@ -162,7 +177,9 @@ function clearSession() {
   wx.removeStorageSync(KEYS.SKIN_STATE);
   wx.removeStorageSync(KEYS.LATEST_SESSION);
   wx.removeStorageSync(KEYS.PENDING_ANALYSIS);
-  wx.removeStorageSync(KEYS.PENDING_ROUTE);
+  if (!options || !options.preservePendingRoute) {
+    wx.removeStorageSync(KEYS.PENDING_ROUTE);
+  }
   try {
     var keys = wx.getStorageInfoSync().keys || [];
     for (var i = 0; i < keys.length; i++) {
@@ -191,6 +208,7 @@ function revokeServerToken(refreshToken) {
 // 登出：先取出凭证用于服务端撤销，再清理本地登录态与敏感缓存
 function logout() {
   var refreshToken = wx.getStorageSync(KEYS.REFRESH_TOKEN) || '';
+  loggedOutAt = Date.now();
   clearSession();
   revokeServerToken(refreshToken);
 }
@@ -198,6 +216,10 @@ function logout() {
 // 是否已登录（有 refreshToken 即视为可恢复登录态，过期由请求层自动刷新）
 function isLoggedIn() {
   return !!(wx.getStorageSync(KEYS.ACCESS_TOKEN) || wx.getStorageSync(KEYS.REFRESH_TOKEN));
+}
+
+function isRecentLogout() {
+  return loggedOutAt > 0 && Date.now() - loggedOutAt < 3000;
 }
 
 function getUser() {
@@ -211,5 +233,6 @@ module.exports = {
   logout: logout,
   clearSession: clearSession,
   isLoggedIn: isLoggedIn,
+  isRecentLogout: isRecentLogout,
   getUser: getUser,
 };
