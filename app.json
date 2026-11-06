@@ -15,9 +15,6 @@
     "pages/account-deletion/account-deletion",
     "pages/legal/legal"
   ],
-  "navigateToMiniProgramAppIdList": [
-    "wx9fb8f3d1c719c4ed"
-  ],
   "window": {
     "navigationBarBackgroundColor": "#f7f5f2",
     "navigationBarTextStyle": "black",

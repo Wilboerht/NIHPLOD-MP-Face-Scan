@@ -111,8 +111,8 @@
 }
 
 .ss-options {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16rpx;
 }
 
@@ -120,8 +120,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 72rpx;
-  padding: 0 28rpx;
+  min-height: var(--tap-min);
+  padding: 0 12rpx;
   border-radius: 999rpx;
   background: var(--color-card);
   font-size: 28rpx;

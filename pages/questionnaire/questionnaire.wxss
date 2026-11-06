@@ -1,25 +1,15 @@
-.state {
-  text-align: center;
-  padding: 120rpx 0;
-}
-
-.retry {
-  margin: 40rpx auto 0;
-  width: 300rpx;
-}
-
 .progress-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 72rpx;
+  min-height: var(--tap-min);
   margin-bottom: 12rpx;
 }
 
 .progress-back {
   display: inline-flex;
   align-items: center;
-  min-height: 72rpx;
+  min-height: var(--tap-min);
   padding: 0 8rpx 0 0;
   font-size: 26rpx;
   color: var(--color-primary-strong);
@@ -105,16 +95,6 @@
 
 .next-btn {
   margin-top: 32rpx;
-}
-
-.prev {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 88rpx;
-  margin-top: 20rpx;
-  font-size: 26rpx;
-  color: var(--color-primary-strong);
 }
 
 /* 测肤次数预检拦截卡 */

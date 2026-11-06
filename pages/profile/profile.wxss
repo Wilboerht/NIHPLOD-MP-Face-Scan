@@ -91,7 +91,7 @@
 .row-modify {
   display: inline-flex;
   align-items: center;
-  min-height: 72rpx;
+  min-height: var(--tap-min);
   padding: 0 8rpx;
   margin-left: 16rpx;
   font-size: 26rpx;
@@ -108,7 +108,7 @@
 
 .row.nav .arrow {
   margin-left: 16rpx;
-  color: #b8a992;
+  color: var(--color-arrow);
   font-size: 36rpx;
 }
 
@@ -117,19 +117,10 @@
   background: var(--color-border);
 }
 
-.link-plain {
-  display: inline-flex;
-  align-items: center;
-  min-height: 72rpx;
-  padding: 0 8rpx;
-  font-size: 26rpx;
-  color: var(--color-muted-strong);
-}
-
 .link-strong {
   display: inline-flex;
   align-items: center;
-  min-height: 72rpx;
+  min-height: var(--tap-min);
   padding: 0 8rpx;
   font-size: 26rpx;
   color: var(--color-text);
@@ -156,7 +147,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 72rpx;
+  min-height: var(--tap-min);
   padding: 0 36rpx;
   border-radius: 999rpx;
   border: 2rpx solid var(--color-border);
@@ -173,7 +164,7 @@
 .picker-field {
   display: flex;
   align-items: center;
-  min-height: 72rpx;
+  min-height: var(--tap-min);
   padding: 0;
   font-size: 30rpx;
   border-bottom: 2rpx solid var(--color-border);

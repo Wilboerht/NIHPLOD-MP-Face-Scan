@@ -1,13 +1,3 @@
-.state {
-  text-align: center;
-  padding: 120rpx 0;
-}
-
-.retry {
-  margin: 40rpx auto 0;
-  width: 300rpx;
-}
-
 .overview {
   background: var(--color-warm);
   border-radius: 24rpx;
@@ -56,6 +46,10 @@
   margin-bottom: 20rpx;
 }
 
+.dim-row:last-child {
+  margin-bottom: 0;
+}
+
 .dim-label {
   width: 180rpx;
   font-size: 26rpx;
@@ -84,7 +78,7 @@
 
 .dim-grade {
   color: var(--color-muted-strong);
-  font-size: 22rpx;
+  font-size: 24rpx;
 }
 
 .issue-head {
@@ -100,7 +94,7 @@
 }
 
 .issue-sev {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--color-danger-strong);
   border: 2rpx solid var(--color-danger-strong);
   border-radius: 999rpx;
@@ -126,7 +120,7 @@
 }
 
 .cond-sev {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--color-danger-strong);
 }
 
@@ -197,7 +191,7 @@
 .p-proof {
   display: inline-block;
   margin-top: 10rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--color-primary-strong);
   background: var(--color-primary-soft);
   border-radius: 999rpx;
@@ -255,6 +249,7 @@
 .p-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 16rpx;
   margin-top: 20rpx;
 }
@@ -272,12 +267,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 80rpx;
+  width: auto !important;
+  flex: 0 0 auto;
+  height: var(--tap-min);
   padding: 0 28rpx;
   border-radius: 999rpx;
   background: var(--color-primary-soft-2);
   color: var(--color-primary-strong);
-  margin: 0;
+  margin: 0 !important;
   font-size: 26rpx;
   line-height: 1;
 }
@@ -308,7 +305,8 @@
 .sheet {
   position: relative;
   width: 100%;
-  height: 85vh;
+  height: auto;
+  max-height: 85vh;
   background: var(--color-bg);
   border-radius: 32rpx 32rpx 0 0;
   display: flex;
@@ -345,7 +343,7 @@
 }
 
 .pd-scroll {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
@@ -355,7 +353,7 @@
 
 .pd-cat {
   display: inline-block;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--color-primary);
   background: var(--color-primary-soft);
   border-radius: 999rpx;
@@ -425,7 +423,7 @@
 .pd-search {
   display: flex;
   align-items: center;
-  min-height: 72rpx;
+  min-height: var(--tap-min);
   margin-top: 32rpx;
   padding: 0;
   font-size: 28rpx;
@@ -440,8 +438,8 @@
 }
 
 .pd-actions .p-btn {
-  height: 80rpx;
-  padding: 0 40rpx;
+  height: var(--tap-min);
+  padding: 0 28rpx;
   font-size: 28rpx;
 }
 

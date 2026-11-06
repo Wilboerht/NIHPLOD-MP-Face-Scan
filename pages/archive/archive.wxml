@@ -66,7 +66,9 @@
           <view class="trend-delta {{trendSummary.deltaUp ? 'delta-up' : ''}}{{trendSummary.deltaDown ? 'delta-down' : ''}}">{{trendSummary.deltaText}}</view>
         </view>
         <view wx:if="{{rangeEmpty}}" class="trend-hint text-muted">近 {{trendRange}} 天内测肤不足 2 次，暂无趋势可看</view>
-        <canvas wx:else type="2d" id="trendCanvas" class="trend-canvas"></canvas>
+        <view wx:else class="trend-canvas-wrap">
+          <canvas wx:if="{{!formOpen}}" type="2d" id="trendCanvas" class="trend-canvas"></canvas>
+        </view>
       </block>
 
       <view class="more-row" wx:if="{{testsTotal > 0}}" bindtap="onGoHistory" hover-class="chip-hover" aria-role="button">
@@ -172,76 +174,81 @@
     </block>
   </block>
 
-  <!-- 打卡表单（底部弹层） -->
+  <!-- 打卡表单（底部弹层，滚动区 + 固定底部操作） -->
   <view class="sheet-mask" wx:if="{{formOpen}}" bindtap="onFormClose" catchtouchmove="noop">
-    <scroll-view scroll-y class="sheet" catchtap="noop">
+    <view class="sheet" catchtap="noop">
       <view class="sheet-head">
         <view class="sheet-title">{{formIsEdit ? '编辑记录' : '打卡'}}</view>
         <view class="sheet-close" bindtap="onFormClose" hover-class="chip-hover" aria-role="button" aria-label="关闭">✕</view>
       </view>
 
-      <view class="sheet-row">
-        <text class="sheet-label">日期</text>
-        <picker mode="date" value="{{formDate}}" start="{{minDate}}" end="{{todayStr}}" bindchange="onFormDateChange">
-          <view class="sheet-date">{{formDateLabel}}</view>
-        </picker>
-      </view>
-
-      <view class="sheet-label">肌肤状态</view>
-      <view class="state-row">
-        <view
-          class="state-item {{formState === item.key ? 'state-active' : ''}}"
-          wx:for="{{stateOptions}}"
-          wx:key="key"
-          data-key="{{item.key}}"
-          bindtap="onFormState"
-          hover-class="chip-hover"
-          aria-role="radio"
-          aria-checked="{{formState === item.key}}"
-        >
-          <view class="state-dot" style="background: {{item.color}}"></view>
-          <text>{{item.label}}</text>
+      <scroll-view scroll-y class="sheet-body">
+        <view class="sheet-row">
+          <text class="sheet-label">日期</text>
+          <picker mode="date" value="{{formDate}}" start="{{minDate}}" end="{{todayStr}}" bindchange="onFormDateChange">
+            <view class="sheet-date">{{formDateLabel}}</view>
+          </picker>
         </view>
-      </view>
 
-      <view class="sheet-label">标签（最多 5 个）</view>
-      <view class="tag-row">
-        <text
-          class="tag {{item.selected ? 'tag-active' : ''}}"
-          wx:for="{{skinTagList}}"
-          wx:key="label"
-          data-label="{{item.label}}"
-          bindtap="onFormTag"
-          hover-class="chip-hover"
-          aria-role="checkbox"
-          aria-checked="{{item.selected}}"
-        >{{item.label}}</text>
-      </view>
-      <view class="tag-row">
-        <text
-          class="tag {{item.selected ? 'tag-active' : ''}}"
-          wx:for="{{situationTagList}}"
-          wx:key="label"
-          data-label="{{item.label}}"
-          bindtap="onFormTag"
-        >{{item.label}}</text>
-      </view>
+        <view class="sheet-label">肌肤状态</view>
+        <view class="state-row">
+          <view
+            class="state-item {{formState === item.key ? 'state-active' : ''}}"
+            wx:for="{{stateOptions}}"
+            wx:key="key"
+            data-key="{{item.key}}"
+            bindtap="onFormState"
+            hover-class="chip-hover"
+            aria-role="radio"
+            aria-checked="{{formState === item.key}}"
+          >
+            <view class="state-dot" style="background: {{item.color}}"></view>
+            <text>{{item.label}}</text>
+          </view>
+        </view>
 
-      <view class="sheet-label">备注（选填）</view>
-      <textarea
-        class="sheet-note"
-        value="{{formNote}}"
-        maxlength="200"
-        placeholder="记录今天的肌肤感受"
-        bindinput="onFormNote"
-        auto-height
-      />
+        <view class="sheet-label">标签（最多 5 个）</view>
+        <view class="tag-row">
+          <text
+            class="tag {{item.selected ? 'tag-active' : ''}}"
+            wx:for="{{skinTagList}}"
+            wx:key="label"
+            data-label="{{item.label}}"
+            bindtap="onFormTag"
+            hover-class="chip-hover"
+            aria-role="checkbox"
+            aria-checked="{{item.selected}}"
+          >{{item.label}}</text>
+        </view>
+        <view class="tag-row">
+          <text
+            class="tag {{item.selected ? 'tag-active' : ''}}"
+            wx:for="{{situationTagList}}"
+            wx:key="label"
+            data-label="{{item.label}}"
+            bindtap="onFormTag"
+          >{{item.label}}</text>
+        </view>
 
-      <button class="btn-primary sheet-save" loading="{{saving}}" disabled="{{saving}}" bindtap="onFormSave">
-        {{formIsEdit ? '保存修改' : '打卡'}}
-      </button>
-      <view class="sheet-delete" wx:if="{{formIsEdit}}" bindtap="onFormDelete" hover-class="chip-hover" aria-role="button">删除这天的记录</view>
-      <view class="sheet-cancel text-muted" bindtap="onFormClose" hover-class="chip-hover" aria-role="button">取消</view>
-    </scroll-view>
+        <view class="sheet-label">备注（选填）</view>
+        <textarea
+          class="sheet-note"
+          value="{{formNote}}"
+          maxlength="200"
+          placeholder="记录今天的肌肤感受"
+          bindinput="onFormNote"
+          auto-height
+        />
+
+        <view class="sheet-delete" wx:if="{{formIsEdit}}" bindtap="onFormDelete" hover-class="chip-hover" aria-role="button">删除这天的记录</view>
+      </scroll-view>
+
+      <view class="sheet-foot">
+        <button class="btn-primary sheet-save" loading="{{saving}}" disabled="{{saving}}" bindtap="onFormSave">
+          {{formIsEdit ? '保存修改' : '打卡'}}
+        </button>
+        <view class="sheet-cancel text-muted" bindtap="onFormClose" hover-class="chip-hover" aria-role="button">取消</view>
+      </view>
+    </view>
   </view>
 </view>

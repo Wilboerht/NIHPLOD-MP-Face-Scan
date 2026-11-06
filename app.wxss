@@ -7,6 +7,7 @@ page {
   --color-text-secondary: #5f5a54;
   --color-muted: #767676;
   --color-muted-strong: #6f6f6f;
+  --color-arrow: #b8a992;
   --color-primary: #8a6d4b;
   --color-primary-strong: #7d5f3e;
   --color-primary-soft: rgba(138, 109, 75, 0.06);
@@ -143,6 +144,79 @@ button::after {
 
 .input-placeholder {
   color: var(--color-muted);
+}
+
+/* 通用空状态 / 重试 */
+.state {
+  text-align: center;
+  padding: 120rpx 0;
+}
+
+.retry {
+  margin: 40rpx auto 0;
+  width: 300rpx;
+}
+
+/* 通用表单输入与验证码行 */
+.field-input {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 88rpx;
+  font-size: 30rpx;
+  padding: 0;
+  border-bottom: 2rpx solid var(--color-border);
+  box-sizing: border-box;
+}
+
+.code-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.code-input {
+  flex: 1;
+}
+
+.code-btn {
+  flex-shrink: 0;
+  width: auto;
+  margin: 0;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  line-height: var(--tap-min);
+  height: var(--tap-min);
+  border-radius: 999rpx;
+  background: var(--color-primary-soft-2);
+  color: var(--color-primary-strong);
+}
+
+.code-btn[disabled] {
+  opacity: 0.5;
+}
+
+/* 通用文字链，热区统一到 --tap-min */
+.link,
+.link-danger,
+.link-plain {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  padding: 0 8rpx;
+  font-size: 26rpx;
+}
+
+.link {
+  color: var(--color-primary);
+}
+
+.link-danger {
+  color: var(--color-danger-strong);
+}
+
+.link-plain {
+  color: var(--color-muted-strong);
 }
 
 /* 自绘导航栏：与积分小程序一致，固定悬浮，logo 使用深蓝原图 */

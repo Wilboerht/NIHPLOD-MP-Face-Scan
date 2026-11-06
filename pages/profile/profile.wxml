@@ -117,8 +117,8 @@
     </view>
   </view>
 
-  <!-- 会员与积分 -->
-  <view class="section-title">会员与积分</view>
+  <!-- 积分 -->
+  <view class="section-title">积分</view>
   <view class="card">
     <view class="row nav" bindtap="onGoPointsMall" hover-class="row-hover" aria-role="button">
       <view class="row-label">积分商城</view>
@@ -128,7 +128,7 @@
   </view>
 
   <!-- 会员与测肤用量 -->
-  <view class="section-title" wx:if="{{vip}}">会员与用量</view>
+  <view class="section-title" wx:if="{{vip}}">会员权益与用量</view>
   <view class="card" wx:if="{{vip}}">
     <view class="vip-level">{{vip.levelLabel}}</view>
     <view class="vip-usage">AI 测肤 {{vip.usageText}}</view>

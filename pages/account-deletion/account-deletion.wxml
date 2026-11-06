@@ -67,6 +67,7 @@
           placeholder-class="input-placeholder"
           placeholder="帮助我们了解注销原因"
           bindinput="onReasonInput"
+          auto-height
         />
       </view>
 

@@ -558,7 +558,14 @@ Page({
 
   onFormClose: function () {
     if (this.data.saving) return;
-    this.setData({ formOpen: false });
+    var self = this;
+    this.setData({ formOpen: false }, function () {
+      self.redrawTrend();
+    });
+  },
+
+  redrawTrend: function () {
+    if (this.data.trendUnlocked && !this.data.rangeEmpty) this.applyTrendRange();
   },
 
   noop: function () {},
@@ -617,7 +624,9 @@ Page({
       showError: false,
     }).then(function (res) {
       self._submitting = false;
-      self.setData({ saving: false, formOpen: false });
+      self.setData({ saving: false, formOpen: false }, function () {
+        self.redrawTrend();
+      });
       var entry = res && res.data;
       if (entry && entry.id) {
         var list = self.data.entries.slice();
@@ -663,7 +672,9 @@ Page({
           showError: false,
         }).then(function () {
           self._submitting = false;
-          self.setData({ saving: false, formOpen: false });
+          self.setData({ saving: false, formOpen: false }, function () {
+            self.redrawTrend();
+          });
           self.removeEntryDate(self.data.formDate);
           wx.showToast({ title: '记录已删除', icon: 'none' });
           self.reloadEntries();

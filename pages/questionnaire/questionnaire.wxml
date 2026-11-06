@@ -67,8 +67,6 @@
     <button wx:if="{{question.type === 'multiple'}}" class="btn-primary next-btn" bindtap="onMultiConfirm">
       {{current + 1 === visibleQuestions.length ? '完成' : '下一题'}}
     </button>
-
-    <view class="prev text-muted" bindtap="onPrev" hover-class="chip-hover" aria-role="button">上一题</view>
   </block>
 
   <view wx:else class="state text-muted">暂无题目</view>

@@ -101,7 +101,7 @@
 }
 
 .arrow {
-  color: #b8a992;
+  color: var(--color-arrow);
   font-size: 36rpx;
 }
 
@@ -116,7 +116,7 @@
 .edit-link {
   display: inline-flex;
   align-items: center;
-  min-height: 72rpx;
+  min-height: var(--tap-min);
   padding: 0 20rpx;
   font-size: 24rpx;
   color: var(--color-primary-strong);
