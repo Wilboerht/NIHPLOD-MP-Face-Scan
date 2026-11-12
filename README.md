@@ -4,6 +4,7 @@
 
 - 原生小程序（无框架），基础库 3.16.2，支持 `lazyCodeLoading`
 - 人脸采集使用微信 VisionKit（106 关键点）做实时姿态检测与自动拍摄；四步姿态仅用于引导/活体流程，实际分析只提交正脸单图
+- 结果页优先使用服务端 `ReportView`（`/api/advisor/reports/:id/view`），历史/档案使用 `history?view=1`；旧报告自动回退原始结果
 - 接口与 H5 仓库 `skin-advisor-standalone` 对齐（字段、错误格式、轮询策略）
 
 ## 功能流程
@@ -28,9 +29,10 @@
 | 问卷 | `pages/questionnaire` | 动态题目、`dependsOn` 条件显示、测肤次数限额拦截 |
 | 拍摄 | `pages/capture` | 四步姿态引导，VisionKit 106 关键点自动检测与拍摄；分析只用正脸单图 |
 | 分析中 | `pages/analyzing` | 提交异步分析任务并轮询状态，模拟进度条 |
-| 报告 | `pages/result` | 十维雷达图（canvas 2d）、评分明细、商品推荐、证书海报生成/保存/分享 |
+| 报告 | `pages/result` | 十维雷达图（canvas 2d）、评分明细、商品推荐、证书海报生成/保存/分享；端侧 canvas 失败自动回退服务端 `/api/advisor/reports/:id/poster` |
 | 历史 | `pages/history` | 服务端历史报告分页列表，点击回看报告 |
-| 测肤档案 | `pages/archive` | 趋势 / 打卡 / 护肤历程 |
+| 测肤档案 | `pages/archive` | 趋势 / 打卡 / 护肤历程 / 产品反馈入口 |
+| 产品反馈 | `pages/product-feedback` | 使用 28 天后对推荐产品评分、肤感、效果、回购意愿 |
 | 我的 | `pages/profile` | 用户中心：资料 / 手机号 / 密码 / 地址 / 会员用量 / 积分商城 / 账号注销 |
 | 账号注销 | `pages/account-deletion` | 短信验证 + 冷静期申请 / 撤回注销 |
 | 法务 | `pages/legal` | 隐私政策 / 用户协议（登录页与首页入口） |
@@ -50,6 +52,8 @@
     ├── account.js                 # 用户中心共享逻辑（资料 / 换绑 / 密码 / 重新登录）
     ├── subscribe.js               # 报告完成 / 复测提醒订阅消息
     ├── legal-text.js              # 隐私政策 / 用户协议简明版文案
+    ├── report-view.js             # ReportView 拉取/缓存/页面字段映射
+    ├── analytics.js               # 埋点（与 H5 analytics/track 共用事件枚举）
     ├── radar.js                   # 十维雷达图绘制（canvas 2d，dpr 适配）
     ├── trend.js                   # 肌肤趋势折线图（canvas 2d）
     ├── poster.js                  # 证书海报端侧合成（底图 + 动态数据叠加 + 二维码）
@@ -63,7 +67,7 @@
 | 域名 | 用途 |
 | --- | --- |
 | `https://nihplod.cn` | 官网主站：登录（`/api/auth/wechat/miniprogram-login`）、token 刷新（`/api/oauth/token`）、撤销（`/api/oauth/revoke`）、资料/地址/密码/换绑、头像上传（`/api/oauth/userinfo/avatar`）、账号注销（`/api/oauth/account/deletion`，验证码端点 `/api/oauth/account/deletion/send-code`） |
-| `https://smart.nihplod.cn` | 测肤子站：`questions` / `face-analyze` / `analyze` / `session/status` / `advisor/history` / `user/diary` / `user/skin-trends` / `score-percentile` |
+| `https://smart.nihplod.cn` | 测肤子站：`questions` / `face-analyze` / `analyze` / `session/status` / `advisor/reports/:id/view` / `advisor/reports/:id/feedback` / `advisor/history?view=1` / `user/diary` / `user/skin-trends` / `user/product-feedback/pending` / `user/product-feedback` / `score-percentile` |
 
 鉴权模型：登录拿到 `accessToken` + `refreshToken`，请求层自动注入 `Authorization: Bearer`；token 过期前 5 分钟主动预刷新，401 时静默刷新一次并重试原请求，仅服务端明确拒绝（4xx ≠ 429）才清登录态跳登录页。
 

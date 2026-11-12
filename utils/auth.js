@@ -183,7 +183,10 @@ function clearSession(options) {
   try {
     var keys = wx.getStorageInfoSync().keys || [];
     for (var i = 0; i < keys.length; i++) {
-      if (keys[i].indexOf(KEYS.RESULT_PREFIX) === 0) wx.removeStorageSync(keys[i]);
+      if (keys[i].indexOf(KEYS.RESULT_PREFIX) === 0 ||
+          keys[i].indexOf('mp_report_view_') === 0) {
+        wx.removeStorageSync(keys[i]);
+      }
     }
   } catch (e) {}
 }

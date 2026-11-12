@@ -1,0 +1,84 @@
+<view class="container feedback-page safe-bottom">
+  <view wx:if="{{loading}}" class="state text-muted">加载中…</view>
+
+  <view wx:elif="{{loadError}}" class="state">
+    <view class="text-muted">{{loadError}}</view>
+    <button class="btn-plain retry" bindtap="loadPending">重试</button>
+  </view>
+
+  <view wx:elif="{{items.length === 0}}" class="state">
+    <view class="empty-title">暂无可反馈的产品</view>
+    <view class="text-muted empty-desc">使用推荐产品满 28 天后，这里会提醒你记录真实感受</view>
+    <button class="btn-plain retry" bindtap="onBack">返回</button>
+  </view>
+
+  <block wx:else>
+    <view class="page-hint text-muted">以下产品已使用 28 天以上，花 1 分钟记录真实感受，帮助后续方案更准确。</view>
+    <view class="card item" wx:for="{{items}}" wx:key="key" wx:for-item="item" wx:for-index="index">
+      <image wx:if="{{item.imageUrl}}" class="thumb" src="{{item.imageUrl}}" mode="aspectFill" lazy-load />
+      <view class="body">
+        <view class="name">{{item.productName}}</view>
+        <view class="meta text-muted">已使用 {{item.daysSince}} 天<text wx:if="{{item.category}}"> · {{item.category}}</text></view>
+        <view class="reason text-muted" wx:if="{{item.reason}}">{{item.reason}}</view>
+      </view>
+      <button class="btn-plain action" data-index="{{index}}" bindtap="openForm">填写反馈</button>
+    </view>
+  </block>
+
+  <view class="sheet-mask" wx:if="{{formOpen && selected}}" bindtap="closeForm" catchtouchmove="noop">
+    <view class="sheet" catchtap="noop">
+      <view class="sheet-head">
+        <view class="sheet-title">{{selected.productName}}</view>
+        <view class="sheet-close" bindtap="closeForm" hover-class="chip-hover" aria-role="button" aria-label="关闭">✕</view>
+      </view>
+      <view class="sheet-body">
+        <view class="form-label">整体评分</view>
+        <view class="stars">
+          <view
+            wx:for="{{ratingStars}}"
+            wx:key="*this"
+            class="star {{item <= rating ? 'star-active' : ''}}"
+            data-value="{{item}}"
+            bindtap="onRating"
+          >★</view>
+        </view>
+
+        <view class="form-label">肤感</view>
+        <view class="chips">
+          <view
+            wx:for="{{skinFeelOptions}}"
+            wx:key="value"
+            class="chip {{skinFeel === item.value ? 'chip-active' : ''}}"
+            data-value="{{item.value}}"
+            bindtap="onSkinFeel"
+          >{{item.label}}</view>
+        </view>
+
+        <view class="form-label">效果变化</view>
+        <view class="chips">
+          <view
+            wx:for="{{effectOptions}}"
+            wx:key="value"
+            class="chip {{effect === item.value ? 'chip-active' : ''}}"
+            data-value="{{item.value}}"
+            bindtap="onEffect"
+          >{{item.label}}</view>
+        </view>
+
+        <view class="form-label">是否愿意回购</view>
+        <view class="chips">
+          <view class="chip {{repurchase === true ? 'chip-active' : ''}}" data-value="yes" bindtap="onRepurchase">愿意</view>
+          <view class="chip {{repurchase === false ? 'chip-active' : ''}}" data-value="no" bindtap="onRepurchase">暂不</view>
+        </view>
+
+        <view class="form-label">补充说明（可选）</view>
+        <textarea class="note" value="{{note}}" maxlength="200" bindinput="onNote" placeholder="比如：用了一周后脸颊更稳定" />
+
+        <view class="form-actions">
+          <button class="btn-plain form-btn" bindtap="closeForm" disabled="{{submitting}}">取消</button>
+          <button class="btn-primary form-btn" bindtap="submit" loading="{{submitting}}" disabled="{{submitting}}">提交反馈</button>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

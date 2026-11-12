@@ -1,6 +1,7 @@
 var config = require('../../config.js');
 var auth = require('../../utils/auth.js');
 var subscribe = require('../../utils/subscribe.js');
+var analytics = require('../../utils/analytics.js');
 
 Page({
   data: {
@@ -12,9 +13,13 @@ Page({
   },
 
   onLoad: function () {
-    // index.json 为 navigationStyle: custom：取状态栏高度做导航栏占位
+    // index.json 的 navigationStyle: custom：取状态栏高度做导航栏占位
     var info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
     this.setData({ statusBarHeight: (info && info.statusBarHeight) || 20 });
+    if (!this._analyticsStarted) {
+      this._analyticsStarted = true;
+      analytics.track('session_start');
+    }
   },
 
   onShow: function () {

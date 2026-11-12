@@ -64,6 +64,8 @@ Page({
     trendUnlocked: false,
     trendRange: 30,
     rangeOptions: [7, 30, 90],
+    trendMetric: 'overall',
+    trendMetrics: [],
     rangeEmpty: false,
     trendSummary: null,
 
@@ -99,6 +101,7 @@ Page({
 
   onLoad: function () {
     this._trendDays = [];
+    this._trendMetrics = [];
     this._loaded = false;
     this._submitting = false;
     this._deleting = false;
@@ -224,21 +227,42 @@ Page({
         return;
       }
       // 按本地日历日聚合（同日多次取最后一次），保留最近 90 天
+      var metrics = Array.isArray(data.metrics) && data.metrics.length
+        ? data.metrics
+        : [{ key: 'overall', label: '综合评分', values: data.scores }];
       var byDay = {};
       for (var i = 0; i < data.dates.length; i++) {
         var iso = data.dates[i];
         var day = util.clientDateStr(new Date(iso));
-        byDay[day] = { dateStr: day, iso: iso, score: data.scores[i] };
+        if (!byDay[day]) {
+          byDay[day] = { dateStr: day, iso: iso, score: data.scores[i], metricValues: {} };
+        }
+        byDay[day].score = data.scores[i];
+        metrics.forEach(function (metric) {
+          byDay[day].metricValues[metric.key] = Array.isArray(metric.values) ? metric.values[i] : null;
+        });
       }
       var days = Object.keys(byDay).sort().map(function (key) {
         return byDay[key];
       }).slice(-90);
       self._trendDays = days;
+      self._trendMetrics = metrics.map(function (metric) {
+        return { key: metric.key, label: metric.label || metric.key };
+      });
       if (days.length < 2) {
         self.setData({ trendsLoaded: true, trendUnlocked: false });
         return;
       }
-      self.setData({ trendsLoaded: true, trendUnlocked: true });
+      var selected = self.data.trendMetric;
+      if (!self._trendMetrics.some(function (metric) { return metric.key === selected; })) {
+        selected = self._trendMetrics[0] ? self._trendMetrics[0].key : 'overall';
+      }
+      self.setData({
+        trendsLoaded: true,
+        trendUnlocked: true,
+        trendMetrics: self._trendMetrics,
+        trendMetric: selected,
+      });
       self.applyTrendRange();
     }).catch(function () {
       self.setData({ trendsLoaded: true, trendsError: true });
@@ -250,7 +274,7 @@ Page({
     self.setData({ testsLoaded: false, testsError: false });
     return request({
       base: 'advisory',
-      url: '/api/advisor/history?page=1&limit=' + TESTS_PAGE_SIZE + '&lite=1',
+      url: '/api/advisor/history?page=1&limit=' + TESTS_PAGE_SIZE + '&lite=1&view=1',
       method: 'GET',
       showError: false,
     }).then(function (res) {
@@ -297,7 +321,7 @@ Page({
       this.setData({ loadingMore: true });
       request({
         base: 'advisory',
-        url: '/api/advisor/history?limit=' + TESTS_PAGE_SIZE + '&lite=1&before=' + encodeURIComponent(cursor),
+        url: '/api/advisor/history?limit=' + TESTS_PAGE_SIZE + '&lite=1&view=1&before=' + encodeURIComponent(cursor),
         method: 'GET',
         showError: false,
       }).then(function (res) {
@@ -399,15 +423,19 @@ Page({
       if (isNaN(date.getTime())) return;
       var day = util.clientDateStr(date);
       var ar = t.analysisResult || {};
-      var score = ar.faceAnalysis && typeof ar.faceAnalysis.overallScore === 'number'
+      var v = t.view || {};
+      var legacyScore = ar.faceAnalysis && typeof ar.faceAnalysis.overallScore === 'number'
         ? Math.round(ar.faceAnalysis.overallScore) : null;
+      var score = typeof v.overallScore === 'number' ? Math.round(v.overallScore) : legacyScore;
+      var typeLabel = v.skinTypeLabel || (ar.skinProfile && ar.skinProfile.typeLabel) || '';
       (byDay[day] = byDay[day] || []).push({
         key: 't' + t.sessionId,
         kind: 'test',
         sessionId: t.sessionId,
         dateStr: day,
         score: score,
-        typeLabel: (ar.skinProfile && ar.skinProfile.typeLabel) || '',
+        typeLabel: typeLabel,
+        topFinding: v.topFinding && v.topFinding.title ? v.topFinding.title : '',
       });
     });
 
@@ -470,6 +498,13 @@ Page({
     this.applyTrendRange();
   },
 
+  onTrendMetric: function (e) {
+    var key = e.currentTarget.dataset.key;
+    if (!key || key === this.data.trendMetric) return;
+    this.setData({ trendMetric: key });
+    this.applyTrendRange();
+  },
+
   applyTrendRange: function () {
     var self = this;
     var days = this._trendDays || [];
@@ -478,27 +513,35 @@ Page({
     var range = this.data.trendRange;
     var cutoff = addDays(todayStr, -(range - 1));
     var win = days.filter(function (d) { return d.dateStr >= cutoff; });
-    if (win.length < 2) {
+    var key = self.data.trendMetric || 'overall';
+    var metric = (self._trendMetrics || []).filter(function (item) { return item.key === key; })[0];
+    var label = metric ? metric.label : '综合评分';
+    var points = win.map(function (day) {
+      var value = key === 'overall' ? day.score : day.metricValues[key];
+      return typeof value === 'number' ? { iso: day.iso, value: value } : null;
+    }).filter(Boolean);
+    if (points.length < 2) {
       self.setData({ rangeEmpty: true, trendSummary: null });
       return;
     }
-    var latest = Math.round(win[win.length - 1].score);
-    var delta = Math.round((win[win.length - 1].score - win[0].score) * 10) / 10;
-    // setData 回调中再查询 canvas：保证条件渲染的 canvas 节点已完成挂载
+    var latest = Math.round(points[points.length - 1].value);
+    var delta = Math.round((points[points.length - 1].value - points[0].value) * 10) / 10;
+    // setData 回调后再查询 canvas，保证布局渲染后 canvas 节点可查询
     self.setData({
       rangeEmpty: false,
       trendSummary: {
+        label: label,
         latest: latest,
-        deltaText: delta > 0 ? '较起点 +' + delta : delta < 0 ? '较起点 ' + delta : '较起点持平',
+        deltaText: delta > 0 ? '较首次 +' + delta : delta < 0 ? '较首次 ' + delta : '基本持平',
         deltaUp: delta > 0,
         deltaDown: delta < 0,
       },
     }, function () {
-      self.drawTrendCanvas(win);
+      self.drawTrendCanvas(points);
     });
   },
 
-  drawTrendCanvas: function (win) {
+  drawTrendCanvas: function (points) {
     wx.createSelectorQuery().in(this)
       .select('#trendCanvas')
       .fields({ node: true, size: true })
@@ -511,8 +554,8 @@ Page({
           res[0].width,
           res[0].height,
           info.pixelRatio || 2,
-          win.map(function (d) { return d.iso; }),
-          win.map(function (d) { return d.score; })
+          points.map(function (point) { return point.iso; }),
+          points.map(function (point) { return point.value; })
         );
       });
   },
@@ -729,6 +772,10 @@ Page({
 
   onGoHistory: function () {
     wx.navigateTo({ url: '/pages/history/history' });
+  },
+
+  onGoProductFeedback: function () {
+    wx.navigateTo({ url: '/pages/product-feedback/product-feedback' });
   },
 
   onGoLogin: function () {

@@ -481,3 +481,97 @@
 .pd-cat {
   color: var(--color-primary-strong);
 }
+
+/* ReportView ÐÂÔöÇø¿é */
+.meta-line {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+}
+
+.dim-item {
+  margin-bottom: 20rpx;
+}
+
+.dim-item:last-child {
+  margin-bottom: 0;
+}
+
+.dim-item .dim-row {
+  margin-bottom: 0;
+}
+
+.dim-detail {
+  margin-top: 6rpx;
+  padding-left: 180rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.routine-note {
+  margin-bottom: 16rpx;
+  padding: 16rpx;
+  border-radius: 12rpx;
+  background: rgba(138, 109, 75, 0.08);
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.routine-block {
+  margin-top: 16rpx;
+}
+
+.routine-label {
+  margin-bottom: 8rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.routine-step {
+  font-size: 25rpx;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.routine-foot {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.safety-row {
+  padding: 8rpx 0;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.feedback-card {
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.feedback-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.feedback-btn {
+  flex: 1;
+}
+
+.dim-feedback {
+  margin-top: 6rpx;
+  padding-left: 180rpx;
+  font-size: 21rpx;
+  color: #a08f7c;
+  text-align: right;
+}
+
+.issue-feedback {
+  margin-top: 10rpx;
+  font-size: 21rpx;
+  color: #a08f7c;
+  text-align: right;
+}

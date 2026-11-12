@@ -4,6 +4,8 @@ var util = require('../../utils/util.js');
 var poster = require('../../utils/poster.js');
 var radar = require('../../utils/radar.js');
 var ingredients = require('../../utils/ingredients.js');
+var reportView = require('../../utils/report-view.js');
+var analytics = require('../../utils/analytics.js');
 
 var KEYS = config.STORAGE_KEYS;
 
@@ -173,12 +175,19 @@ Page({
     skinAge: null,
     overallScore: null,
     summary: '',
+    topFinding: null,
+    nextStep: '',
+    coverageText: '',
+    narrativeSource: '',
+    legacy: false,
     hasRadar: false,
     dimensionList: [],   // [{label, score, gradeLabel, details}] 数据明细（雷达图下方保留）
     issues: [],          // consultantReport.issues
     strengths: [],
     zoneList: [],        // [{label, condition, advice}]
     conditions: [],      // faceAnalysis.skinConditions
+    routine: null,       // ReportView 每日方案
+    safety: null,        // ReportView 安全与成分
     products: [],
     // 产品详情弹层（对齐 H5 ProductDetailModal）
     detailOpen: false,
@@ -186,7 +195,8 @@ Page({
   },
 
   onLoad: function (options) {
-    this._rawResult = null;     // 原始结果（海报取 persona 等字段用）
+    this._rawResult = null;     // 原始结果（旧接口回退）
+    this._view = null;          // ReportView（优先）
     this._posterCanvas = null;  // 海报离屏 canvas 节点（懒初始化）
     this._posterBusy = false;
 
@@ -196,12 +206,56 @@ Page({
       this.setData({ loading: false, loadError: '缺少报告参数' });
       return;
     }
-    var cached = wx.getStorageSync(KEYS.RESULT_PREFIX + sessionId);
-    if (cached) {
-      this.renderResult(cached);
+
+    var cachedView = reportView.getCachedView(sessionId);
+    if (cachedView) {
+      this.renderView(cachedView);
       return;
     }
-    this.fetchResult(sessionId);
+    this.fetchView(sessionId);
+  },
+
+  // 优先从 ReportView 接口加载（跨端统一结构）；失败回退旧 session/status
+  fetchView: function (sessionId) {
+    var self = this;
+    reportView.fetchView(sessionId).then(function (view) {
+      self.renderView(view);
+    }).catch(function () {
+      self.fetchResult(sessionId);
+    });
+  },
+
+  renderView: function (view) {
+    var self = this;
+    var data = reportView.toPageData(view);
+    self._view = view;
+    if (!self._viewTracked) {
+      self._viewTracked = true;
+      analytics.track('result_view', {
+        reportVersion: view.meta && view.meta.reportVersion,
+        narrativeSource: view.meta && view.meta.narrativeSource,
+      }, self.data.sessionId);
+    }
+    var products = (data.products || []).map(self.decorateProduct);
+    var radarData = RADAR_DIM_ORDER.map(function (key) {
+      var dim = null;
+      for (var i = 0; i < data.dimensionList.length; i++) {
+        if (data.dimensionList[i].key === key) { dim = data.dimensionList[i]; break; }
+      }
+      return {
+        label: util.DIMENSION_LABELS[key] || key,
+        score: dim && !dim.notVisible && typeof dim.score === 'number' ? dim.score : 0,
+      };
+    });
+
+    self.setData(Object.assign({}, data, {
+      loading: false,
+      loadError: '',
+      products: products,
+    }), function () {
+      self._radarData = radarData;
+      self.initRadar();
+    });
   },
 
   // 本地无缓存时从服务端拉取（历史报告回看场景）
@@ -232,6 +286,12 @@ Page({
     var self = this;
     var r = result || {};
     self._rawResult = r;
+    if (!self._viewTracked) {
+      self._viewTracked = true;
+      analytics.track('result_view', {
+        reportVersion: r.reportVersion,
+      }, self.data.sessionId);
+    }
 
     var face = r.faceAnalysis && typeof r.faceAnalysis === 'object' ? r.faceAnalysis : {};
     var profile = (r.skinProfile && typeof r.skinProfile === 'object')
@@ -392,19 +452,22 @@ Page({
   buildPosterInput: function () {
     var self = this;
     var r = self._rawResult || {};
+    var viewMeta = (self._view && self._view.meta) || {};
     var face = r.faceAnalysis || {};
-    var gender = (r.answers && r.answers.gender) || r.gender
+    var gender = (r.answers && r.answers.gender) || r.gender || viewMeta.gender
       || (face.gender && face.gender.value) || 'female';
+    var persona = viewMeta.persona || r.persona || 'guardian';
+    var score = typeof viewMeta.overallScore === 'number' ? viewMeta.overallScore : self.data.overallScore;
 
     // 建议：与 H5 证书完全一致——取该派系 m7 建议前 2 条标题（内嵌于 utils/poster.js，
     // 不再用顾问报告长句：长句会被 fitText 截断，与 H5 观感不一致）
-    var advice = poster.getPersonaAdvice(r.persona || 'guardian');
+    var advice = poster.getPersonaAdvice(persona);
 
     // 百分位：公共服务，失败/无数据则不叠加
-    var percentilePromise = typeof self.data.overallScore === 'number'
+    var percentilePromise = typeof score === 'number'
       ? request({
           base: 'advisory',
-          url: '/api/advisor/score-percentile?score=' + self.data.overallScore,
+          url: '/api/advisor/score-percentile?score=' + score,
           method: 'GET',
           showError: false,
         }).then(function (res) {
@@ -414,10 +477,10 @@ Page({
 
     return percentilePromise.then(function (percentile) {
       return {
-        persona: r.persona || 'guardian',
+        persona: persona,
         gender: gender,
         nickname: self.data.nickname,
-        score: self.data.overallScore,
+        score: score,
         percentile: percentile,
         advice: advice,
       };
@@ -450,6 +513,11 @@ Page({
           return poster.generatePoster(canvas, input, variant);
         });
       })
+      .catch(function (err) {
+        // 端侧 canvas 失败时回退服务端 sharp 海报（需登录态与 sessionId）
+        if (!self.data.sessionId) throw err;
+        return self.downloadServerPoster(variant);
+      })
       .then(function (tempFilePath) {
         wx.hideLoading();
         self._posterBusy = false;
@@ -462,10 +530,55 @@ Page({
       });
   },
 
+  // 服务端海报兜底：POST 二进制写临时文件，供 wx.saveImageToPhotosAlbum 使用
+  downloadServerPoster: function (variant) {
+    var self = this;
+    var token = '';
+    try { token = wx.getStorageSync(KEYS.ACCESS_TOKEN) || ''; } catch (e) {}
+    var viewMeta = (self._view && self._view.meta) || {};
+    var raw = self._rawResult || {};
+    var gender = viewMeta.gender || (raw.faceAnalysis && raw.faceAnalysis.gender && raw.faceAnalysis.gender.value) || 'female';
+    var url = config.ADVISORY_BASE_URL.replace(/\/+$/, '') + '/api/advisor/reports/' + encodeURIComponent(self.data.sessionId) + '/poster';
+
+    return new Promise(function (resolve, reject) {
+      wx.request({
+        url: url,
+        method: 'POST',
+        timeout: 30000,
+        responseType: 'arraybuffer',
+        header: Object.assign(
+          { 'Content-Type': 'application/json' },
+          token ? { Authorization: 'Bearer ' + token } : {}
+        ),
+        data: { variant: variant, gender: gender === 'male' ? 'male' : 'female' },
+        success: function (res) {
+          if (res.statusCode < 200 || res.statusCode >= 300 || !res.data) {
+            reject(new Error('服务端海报生成失败'));
+            return;
+          }
+          var filePath = wx.env.USER_DATA_PATH + '/cert-poster-' + Date.now() + '.png';
+          try {
+            wx.getFileSystemManager().writeFile({
+              filePath: filePath,
+              data: res.data,
+              success: function () { resolve(filePath); },
+              fail: function () { reject(new Error('海报保存失败')); },
+            });
+          } catch (e) {
+            reject(new Error('海报保存失败'));
+          }
+        },
+        fail: function () { reject(new Error('海报生成失败，请检查网络')); },
+      });
+    });
+  },
+
   saveToAlbum: function (tempFilePath) {
+    var self = this;
     wx.saveImageToPhotosAlbum({
       filePath: tempFilePath,
       success: function () {
+        analytics.track('poster_save', {}, self.data.sessionId);
         wx.showToast({ title: '已保存到相册', icon: 'success' });
       },
       fail: function (err) {
@@ -546,6 +659,10 @@ Page({
     var index = Number(e.currentTarget.dataset.index);
     var product = this.data.products[index];
     if (!product) return;
+    analytics.track('product_detail_open', {
+      productId: product.id,
+      productName: product.name,
+    }, this.data.sessionId);
     this.setData({ detailOpen: true, detailProduct: product });
   },
 
@@ -576,6 +693,10 @@ Page({
   onBuyOption: function (e) {
     var dataset = e.currentTarget.dataset || {};
     var kind = dataset.kind;
+    analytics.track('purchase_click', {
+      kind: kind,
+      platform: dataset.platform,
+    }, this.data.sessionId);
 
     if (kind === 'shop-short-link' || kind === 'mini-program-short-link') {
       var shortLink = dataset.shortLink;
@@ -607,6 +728,51 @@ Page({
         },
       });
     }
+  },
+
+  onReportFeedback: function (e) {
+    var self = this;
+    var verdict = e.currentTarget.dataset.verdict;
+    if (!verdict || !self.data.sessionId) return;
+    request({
+      base: 'advisory',
+      url: '/api/advisor/reports/' + encodeURIComponent(self.data.sessionId) + '/feedback',
+      method: 'POST',
+      showError: false,
+      data: {
+        targetType: 'report',
+        targetKey: 'report',
+        verdict: verdict,
+      },
+    }).then(function () {
+      analytics.track('feedback_submit', { targetType: 'report', verdict: verdict }, self.data.sessionId);
+      wx.showToast({ title: '感谢反馈', icon: 'success' });
+    }).catch(function (err) {
+      wx.showToast({ title: (err && err.message) || '反馈失败，请重试', icon: 'none' });
+    });
+  },
+
+  onTargetFeedback: function (e) {
+    var self = this;
+    var targetType = e.currentTarget.dataset.targetType;
+    var targetKey = e.currentTarget.dataset.targetKey;
+    if (!targetType || !targetKey || !self.data.sessionId) return;
+    request({
+      base: 'advisory',
+      url: '/api/advisor/reports/' + encodeURIComponent(self.data.sessionId) + '/feedback',
+      method: 'POST',
+      showError: false,
+      data: { targetType: targetType, targetKey: targetKey, verdict: 'inaccurate' },
+    }).then(function () {
+      analytics.track('feedback_submit', {
+        targetType: targetType,
+        targetKey: targetKey,
+        verdict: 'inaccurate',
+      }, self.data.sessionId);
+      wx.showToast({ title: '感谢反馈', icon: 'success' });
+    }).catch(function (err) {
+      wx.showToast({ title: (err && err.message) || '反馈失败，请重试', icon: 'none' });
+    });
   },
 
   onBackHome: function () {

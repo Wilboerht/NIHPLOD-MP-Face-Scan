@@ -3,6 +3,7 @@ var request = require('../../utils/request.js').request;
 var uuid = require('../../utils/uuid.js').uuid;
 var util = require('../../utils/util.js');
 var auth = require('../../utils/auth.js');
+var analytics = require('../../utils/analytics.js');
 
 var KEYS = config.STORAGE_KEYS;
 var POLL_INTERVAL_MS = 3000;   // 与 H5 useAsyncAnalysis 一致：3s × 60 = 180s 总轮询
@@ -182,6 +183,11 @@ Page({
     var sessionId = self._sessionId;
     self._pendingFingerprint = fingerprint;
     self.savePending();
+    if (!self._analyticsStarted) {
+      self._analyticsStarted = true;
+      analytics.setSessionId(sessionId);
+      analytics.track('analysis_start', {}, sessionId);
+    }
 
     var facePromise = self.ensureConsent().then(function (consentOk) {
       if (!consentOk) {
@@ -211,7 +217,9 @@ Page({
           showError: false,
           data: {
             sessionId: sessionId,
+            // 四角度仅用于拍摄引导；进入 AI 的只有正脸单图
             images: [{ data: imageData, angle: 'front' }],
+            imageUsage: 'front_only',
             skinState: skinState,
           },
         }).then(function (faceAnalysis) {
@@ -288,6 +296,7 @@ Page({
         self.stopTimers();
         self.setData({ progress: 100, stageText: '分析完成', running: false });
         if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
+        analytics.track('analysis_complete', { source: 'ai' }, sessionId);
         // reLaunch 避免系统返回落回拍摄页
         wx.reLaunch({ url: '/pages/result/result?sessionId=' + sessionId });
       })

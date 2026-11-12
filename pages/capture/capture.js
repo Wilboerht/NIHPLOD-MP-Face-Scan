@@ -1,6 +1,7 @@
 var config = require('../../config.js');
 var util = require('../../utils/util.js');
 var auth = require('../../utils/auth.js');
+var analytics = require('../../utils/analytics.js');
 
 // ============================================================================
 // 真机校准开关
@@ -121,6 +122,8 @@ Page({
     this._multiFace = false;      // 当前帧是否检测到多张人脸（阻断自动/手动拍摄）
     this._inited = false;
     this._completed = false;      // 四步拍完已进入分析页；返回本页时重置流程
+
+    analytics.track('face_scan_start');
 
     if (!auth.isLoggedIn()) {
       wx.showToast({ title: '请先登录', icon: 'none' });
@@ -532,6 +535,7 @@ Page({
     }
 
     wx.vibrateShort({ type: 'light', fail: function () {} });
+    analytics.track('face_scan_step', { step: step, mode: this.data.mode });
 
     var next = this.data.stepIndex + 1;
     this._capturing = false;
@@ -573,6 +577,7 @@ Page({
       return;
     }
     var self = this;
+    analytics.track('face_scan_complete');
     wx.navigateTo({
       url: '/pages/analyzing/analyzing',
       fail: function () {

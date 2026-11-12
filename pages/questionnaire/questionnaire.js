@@ -1,6 +1,7 @@
 var config = require('../../config.js');
 var request = require('../../utils/request.js').request;
 var auth = require('../../utils/auth.js');
+var analytics = require('../../utils/analytics.js');
 
 // 前置条件判断（同 H5 Question.dependsOn：equals / notEquals / contains）
 // 另含 H5 questions/page.tsx 的硬编码规则：男性不显示孕期/经期题
@@ -54,6 +55,7 @@ Page({
     }
     this._advancing = false;
     this._advanceTimer = null;
+    analytics.track('questionnaire_start');
     this.fetchQuestions();
     this.checkLimit();
   },
@@ -292,8 +294,11 @@ Page({
   },
 
   finish: function () {
-    // answers 需非空对象（H5 AnalyzeRequestSchema refine 校验）
+    // answers 做最后兜底（H5 AnalyzeRequestSchema refine 校验）
     wx.setStorageSync(config.STORAGE_KEYS.ANSWERS, this.data.answers);
+    analytics.track('questionnaire_complete', {
+      fieldCount: Object.keys(this.data.answers || {}).length,
+    });
     wx.navigateTo({ url: '/pages/capture/capture' });
   },
 

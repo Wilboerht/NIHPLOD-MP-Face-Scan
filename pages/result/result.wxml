@@ -22,6 +22,8 @@
         </view>
       </view>
       <view class="summary" wx:if="{{summary}}">{{summary}}</view>
+      <view class="meta-line text-muted" wx:if="{{coverageText}}">{{coverageText}}</view>
+      <view class="meta-line text-muted" wx:if="{{narrativeSource === 'fallback'}}">本次报告由规则引擎生成</view>
     </view>
 
     <!-- 十维评分：雷达图 + 数据明细列表 -->
@@ -30,12 +32,24 @@
       <canvas type="2d" id="radarCanvas" class="radar-canvas"></canvas>
     </view>
     <view class="card" wx:if="{{dimensionList.length}}">
-      <view class="dim-row" wx:for="{{dimensionList}}" wx:key="key">
-        <view class="dim-label">{{item.label}}</view>
-        <view class="dim-bar">
-          <view class="dim-bar-inner" style="width: {{item.score || 0}}%"></view>
+      <view class="dim-item" wx:for="{{dimensionList}}" wx:key="key">
+        <view class="dim-row">
+          <view class="dim-label">{{item.label}}</view>
+          <view class="dim-bar">
+            <view class="dim-bar-inner" style="width: {{item.score || 0}}%"></view>
+          </view>
+          <view class="dim-score">{{item.score}}<text class="dim-grade" wx:if="{{item.gradeLabel}}"> {{item.gradeLabel}}</text></view>
         </view>
-        <view class="dim-score">{{item.score}}<text class="dim-grade" wx:if="{{item.gradeLabel}}"> {{item.gradeLabel}}</text></view>
+        <view class="dim-detail text-muted" wx:if="{{item.details}}">{{item.details}}</view>
+        <view class="dim-detail text-muted" wx:if="{{item.notVisible}}">图片不足以判断</view>
+        <view class="dim-detail text-muted" wx:if="{{item.lowConfidence}}">置信度较低，仅供谨慎参考</view>
+        <view
+          class="dim-feedback"
+          wx:if="{{sessionId}}"
+          data-target-type="dimension"
+          data-target-key="{{item.key}}"
+          catchtap="onTargetFeedback"
+        >哪里不准？</view>
       </view>
     </view>
 
@@ -47,10 +61,19 @@
         <view class="issue-sev" wx:if="{{issue.severityLabel}}">{{issue.severityLabel}}</view>
       </view>
       <view class="issue-block" wx:if="{{issue.observation}}">观察：{{issue.observation}}</view>
-      <view class="issue-block" wx:if="{{issue.directCauses}}">诱因：{{issue.directCauses}}</view>
+      <view class="issue-block" wx:if="{{issue.directCauses}}">直接诱因：{{issue.directCauses}}</view>
+      <view class="issue-block" wx:if="{{issue.indirectCauses}}">生活诱因：{{issue.indirectCauses}}</view>
+      <view class="issue-block text-muted" wx:if="{{issue.evidenceText}}">证据：{{issue.evidenceText}}</view>
       <view class="issue-block" wx:if="{{issue.skincarePlan}}">护理方案：{{issue.skincarePlan}}</view>
       <view class="issue-block" wx:if="{{issue.lifestylePlan}}">生活建议：{{issue.lifestylePlan}}</view>
       <view class="issue-block text-muted" wx:if="{{issue.medicalBoundary}}">就医边界：{{issue.medicalBoundary}}</view>
+      <view
+        class="issue-feedback"
+        wx:if="{{sessionId && issue.id}}"
+        data-target-type="finding"
+        data-target-key="{{issue.id}}"
+        catchtap="onTargetFeedback"
+      >哪里不准？</view>
     </view>
 
     <!-- 检测到的肌肤状况 -->
@@ -79,6 +102,43 @@
     <view class="section-title" wx:if="{{strengths.length}}">肌肤优势</view>
     <view class="card" wx:if="{{strengths.length}}">
       <view class="strength" wx:for="{{strengths}}" wx:key="*this">· {{item}}</view>
+    </view>
+
+    <!-- 每日方案（ReportView） -->
+    <view class="section-title" wx:if="{{routine}}">每日方案</view>
+    <view class="card" wx:if="{{routine}}">
+      <view class="routine-note" wx:if="{{routine.routineNote}}">本次微调：{{routine.routineNote}}</view>
+      <view class="routine-block" wx:if="{{routine.morning.length > 0}}">
+        <view class="routine-label">晨间</view>
+        <view class="routine-step" wx:for="{{routine.morning}}" wx:key="*this">· {{item}}</view>
+      </view>
+      <view class="routine-block" wx:if="{{routine.night.length > 0}}">
+        <view class="routine-label">夜间</view>
+        <view class="routine-step" wx:for="{{routine.night}}" wx:key="*this">· {{item}}</view>
+      </view>
+      <view class="routine-foot text-muted" wx:if="{{routine.formulaCore}}">护肤公式：{{routine.formulaCore}}</view>
+      <view class="routine-foot text-muted" wx:if="{{routine.note}}">注意：{{routine.note}}</view>
+    </view>
+
+    <!-- 安全与成分（ReportView） -->
+    <view class="section-title" wx:if="{{safety}}">安全与成分</view>
+    <view class="card" wx:if="{{safety}}">
+      <view class="safety-row" wx:if="{{safety.excludedText}}">已为你避开：{{safety.excludedText}}</view>
+      <view class="safety-row" wx:if="{{safety.activesText}}">活性成分：{{safety.activesText}}</view>
+      <view class="safety-row" wx:if="{{safety.conflictsText}}">使用禁忌：{{safety.conflictsText}}</view>
+      <view class="safety-row" wx:if="{{safety.patchTest}}">建立耐受：{{safety.patchTest}}</view>
+      <view class="safety-row" wx:if="{{safety.sunProtection}}">防晒要求：{{safety.sunProtection}}</view>
+      <view class="safety-row text-muted" wx:if="{{safety.doctorText}}">就医边界：{{safety.doctorText}}</view>
+    </view>
+
+    <!-- 报告纠错（Phase 1：报告级反馈；维度/问题级反馈后续扩展） -->
+    <view class="section-title">报告纠错</view>
+    <view class="card feedback-card">
+      <view class="text-muted">这份报告符合你的实际情况吗？你的反馈会帮助我们改进分析。</view>
+      <view class="feedback-actions">
+        <button class="btn-plain feedback-btn" data-verdict="accurate" bindtap="onReportFeedback">准确</button>
+        <button class="btn-plain feedback-btn" data-verdict="inaccurate" bindtap="onReportFeedback">不准确</button>
+      </view>
     </view>
 
     <!-- 推荐产品 -->

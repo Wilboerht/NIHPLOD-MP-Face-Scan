@@ -1,0 +1,175 @@
+.feedback-page {
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.page-hint {
+  margin: 8rpx 0 20rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 16rpx;
+  padding: 20rpx;
+}
+
+.thumb {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 16rpx;
+  flex-shrink: 0;
+  background: #f1ece3;
+}
+
+.body {
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.meta {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+}
+
+.reason {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.action {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  padding: 0 22rpx;
+  min-height: 64rpx;
+}
+
+.empty-title {
+  font-size: 30rpx;
+  margin-bottom: 12rpx;
+}
+
+.empty-desc {
+  font-size: 24rpx;
+  line-height: 1.7;
+  margin-bottom: 24rpx;
+}
+
+.retry {
+  margin-top: 16rpx;
+}
+
+.sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(20, 20, 20, 0.35);
+}
+
+.sheet {
+  width: 100%;
+  max-height: 86vh;
+  background: #fdfbf7;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 28rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.sheet-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.sheet-close {
+  padding: 8rpx 12rpx;
+  color: var(--color-text-tertiary);
+}
+
+.sheet-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.form-label {
+  margin: 24rpx 0 12rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+}
+
+.stars {
+  display: flex;
+  gap: 12rpx;
+}
+
+.star {
+  font-size: 48rpx;
+  line-height: 1;
+  color: #ded6ca;
+}
+
+.star-active {
+  color: #c9a86c;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.chip {
+  padding: 10rpx 22rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(61, 47, 37, 0.12);
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+}
+
+.chip-active {
+  border-color: rgba(138, 109, 75, 0.4);
+  background: rgba(138, 109, 75, 0.1);
+  color: #5c4937;
+}
+
+.note {
+  width: 100%;
+  min-height: 120rpx;
+  padding: 16rpx;
+  box-sizing: border-box;
+  border-radius: 16rpx;
+  border: 1rpx solid rgba(61, 47, 37, 0.12);
+  background: #ffffff;
+  font-size: 24rpx;
+}
+
+.form-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 28rpx;
+}
+
+.form-btn {
+  flex: 1;
+}

@@ -34,8 +34,8 @@ Page({
     this.fetchHistory(1);
   },
 
-  // GET /api/advisor/history?page=&limit=&lite=1
-  // 响应 { history: [{sessionId, completedAt, analysisResult: {faceAnalysis?, skinProfile?, persona?}}], pagination: {page, limit, total, totalPages} }
+  // GET /api/advisor/history?page=&limit=&lite=1&view=1
+  // view=1 返回跨端 ReportView 摘要；旧服务端不认识 view 时仍回退 lite 的 analysisResult
   fetchHistory: function (page, options) {
     var self = this;
     var isFirst = page === 1;
@@ -45,18 +45,22 @@ Page({
 
     return request({
       base: 'advisory',
-      url: '/api/advisor/history?page=' + page + '&limit=' + PAGE_SIZE + '&lite=1',
+      url: '/api/advisor/history?page=' + page + '&limit=' + PAGE_SIZE + '&lite=1&view=1',
       method: 'GET',
       showError: false,
     }).then(function (res) {
       var items = (res.history || []).map(function (s) {
+        var v = s.view || {};
         var ar = s.analysisResult || {};
+        var legacyScore = ar.faceAnalysis && typeof ar.faceAnalysis.overallScore === 'number'
+          ? Math.round(ar.faceAnalysis.overallScore) : null;
+        var legacyType = (ar.skinProfile && ar.skinProfile.typeLabel) || '';
         return {
           sessionId: s.sessionId,
           timeText: util.formatTime(s.completedAt),
-          score: ar.faceAnalysis && typeof ar.faceAnalysis.overallScore === 'number'
-            ? Math.round(ar.faceAnalysis.overallScore) : null,
-          typeLabel: (ar.skinProfile && ar.skinProfile.typeLabel) || '',
+          score: typeof v.overallScore === 'number' ? Math.round(v.overallScore) : legacyScore,
+          typeLabel: v.skinTypeLabel || legacyType,
+          topFinding: v.topFinding && v.topFinding.title ? v.topFinding.title : '',
         };
       });
       var pagination = res.pagination || { page: page, totalPages: page };

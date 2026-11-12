@@ -8,6 +8,7 @@
     "pages/result/result",
     "pages/history/history",
     "pages/archive/archive",
+    "pages/product-feedback/product-feedback",
     "pages/profile/profile",
     "pages/phone-rebind/phone-rebind",
     "pages/password/password",

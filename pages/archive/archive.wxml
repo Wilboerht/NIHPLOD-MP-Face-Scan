@@ -49,6 +49,17 @@
         >近 {{item}} 天</view>
       </view>
 
+      <scroll-view scroll-x class="metric-row" wx:if="{{trendUnlocked && trendMetrics.length > 1}}" enhanced show-scrollbar="{{false}}">
+        <view
+          class="range-chip metric-chip {{trendMetric === item.key ? 'range-active' : ''}}"
+          wx:for="{{trendMetrics}}"
+          wx:key="key"
+          data-key="{{item.key}}"
+          bindtap="onTrendMetric"
+          hover-class="chip-hover"
+        >{{item.label}}</view>
+      </scroll-view>
+
       <view wx:if="{{!trendsLoaded}}" class="trend-hint text-muted">趋势加载中…</view>
 
       <block wx:elif="{{trendsError}}">
@@ -62,7 +73,7 @@
 
       <block wx:else>
         <view class="trend-summary" wx:if="{{trendSummary}}">
-          <view class="trend-latest">最新 <text class="trend-score">{{trendSummary.latest}}</text> 分</view>
+          <view class="trend-latest">{{trendSummary.label || '综合评分'}} · 最新 <text class="trend-score">{{trendSummary.latest}}</text> 分</view>
           <view class="trend-delta {{trendSummary.deltaUp ? 'delta-up' : ''}}{{trendSummary.deltaDown ? 'delta-down' : ''}}">{{trendSummary.deltaText}}</view>
         </view>
         <view wx:if="{{rangeEmpty}}" class="trend-hint text-muted">近 {{trendRange}} 天内测肤不足 2 次，暂无趋势可看</view>
@@ -75,6 +86,14 @@
         <text>全部测肤记录</text>
         <text class="more-arrow">›</text>
       </view>
+    </view>
+
+    <!-- 产品反馈 -->
+    <view class="section-title">产品使用反馈</view>
+    <view class="card feedback-entry" bindtap="onGoProductFeedback" hover-class="row-hover" aria-role="button">
+      <view class="feedback-entry-title">记录产品使用感受</view>
+      <view class="text-muted">使用推荐产品 28 天后，告诉顾问真实效果</view>
+      <view class="feedback-entry-arrow">›</view>
     </view>
 
     <!-- 打卡 -->
@@ -161,6 +180,7 @@
               <view class="ev-test-score ev-test-empty" wx:else>—</view>
               <view class="ev-test-info">
                 <view>{{ev.typeLabel || '测肤报告'}}</view>
+                <view class="text-muted" wx:if="{{ev.topFinding}}">{{ev.topFinding}}</view>
                 <view class="text-muted">查看报告 ›</view>
               </view>
             </view>

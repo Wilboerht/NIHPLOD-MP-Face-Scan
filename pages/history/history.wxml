@@ -41,6 +41,7 @@
         <view class="item-score item-empty" wx:else>—</view>
         <view class="item-info">
           <view wx:if="{{item.typeLabel}}">{{item.typeLabel}}</view>
+          <view class="text-muted" wx:if="{{item.topFinding}}">{{item.topFinding}}</view>
           <view class="text-muted">{{item.timeText}}</view>
         </view>
       </view>
