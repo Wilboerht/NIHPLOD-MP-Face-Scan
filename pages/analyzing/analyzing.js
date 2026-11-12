@@ -274,8 +274,7 @@ Page({
         // 服务端缓存/异步结果可能缺 faceAnalysis，用本次视觉结果补齐（与 H5 一致）
         if (self._faceAnalysis && !result.faceAnalysis) result.faceAnalysis = self._faceAnalysis;
         result.sessionId = sessionId;
-        // 本地缓存只是加速回看；存储配额满时不能影响成功页跳转
-        try { wx.setStorageSync(KEYS.RESULT_PREFIX + sessionId, result); } catch (e) {}
+        // 只记录最近会话；完整报告不再写入本地，减少敏感数据留存
         try { wx.setStorageSync(KEYS.LATEST_SESSION, sessionId); } catch (e) {}
         try {
           var cacheKeys = wx.getStorageInfoSync().keys || [];

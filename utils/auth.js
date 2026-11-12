@@ -175,6 +175,8 @@ function clearSession(options) {
   wx.removeStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS);
   wx.removeStorageSync(KEYS.ANSWERS);
   wx.removeStorageSync(KEYS.SKIN_STATE);
+  // 隐私同意记录保留：账号切换时由 userId 归属校验触发重新同意，
+  // 避免每次登录都重复弹隐私授权。
   wx.removeStorageSync(KEYS.LATEST_SESSION);
   wx.removeStorageSync(KEYS.PENDING_ANALYSIS);
   if (!options || !options.preservePendingRoute) {

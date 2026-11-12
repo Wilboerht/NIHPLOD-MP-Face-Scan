@@ -11,11 +11,28 @@ function cacheKey(sessionId) {
   return VIEW_CACHE_PREFIX + sessionId;
 }
 
+function currentUserId() {
+  try {
+    var user = wx.getStorageSync(KEYS.USER_INFO) || {};
+    return user && user.id ? String(user.id) : '';
+  } catch (e) {
+    return '';
+  }
+}
+
 function getCachedView(sessionId) {
   if (!sessionId) return null;
+  var ownerId = currentUserId();
+  // 未登录/用户信息缺失时不使用缓存，避免共享设备上一位用户的报告被直接渲染
+  if (!ownerId) return null;
   try {
     var view = wx.getStorageSync(cacheKey(sessionId));
-    return view && view.meta ? view : null;
+    if (!view || !view.meta) return null;
+    if (view._ownerId !== ownerId) {
+      wx.removeStorageSync(cacheKey(sessionId));
+      return null;
+    }
+    return view;
   } catch (e) {
     return null;
   }
@@ -23,8 +40,16 @@ function getCachedView(sessionId) {
 
 function setCachedView(sessionId, view) {
   if (!sessionId || !view) return;
+  var ownerId = currentUserId();
+  if (!ownerId) return;
   try {
-    wx.setStorageSync(cacheKey(sessionId), view);
+    // 浅拷贝后写入归属标记，避免污染调用方持有的 view 对象
+    var cached = {};
+    for (var key in view) {
+      if (Object.prototype.hasOwnProperty.call(view, key)) cached[key] = view[key];
+    }
+    cached._ownerId = ownerId;
+    wx.setStorageSync(cacheKey(sessionId), cached);
   } catch (e) {}
   // 只保留当前报告视图，避免缓存无限增长
   try {
@@ -134,8 +159,22 @@ function toPageData(view) {
   }
 
   var routine = view && view.routine ? {
-    morning: (view.routine.morning || []).map(function (step) { return step.text; }),
-    night: (view.routine.night || []).map(function (step) { return step.text; }),
+    morning: (view.routine.morning || []).map(function (step) {
+      return {
+        text: step.text || '',
+        productName: step.productName || '',
+        category: step.category || '',
+        howToUse: step.howToUse || '',
+      };
+    }),
+    night: (view.routine.night || []).map(function (step) {
+      return {
+        text: step.text || '',
+        productName: step.productName || '',
+        category: step.category || '',
+        howToUse: step.howToUse || '',
+      };
+    }),
     note: view.routine.note || '',
     formulaCore: view.routine.formulaCore || '',
     onlyOneSet: view.routine.onlyOneSet || '',
@@ -178,6 +217,12 @@ function toPageData(view) {
     next: view && view.next ? view.next : null,
     coverageText: coverageText,
     narrativeSource: meta.narrativeSource || '',
+    validationMessage: meta.validationMessage || '',
+    skinState: meta.skinState || '',
+    // 带妆拍摄提示：与 H5 报告一致，避免用户把妆容问题当成肌肤问题
+    makeupWarning: meta.skinState === 'light_makeup' || meta.skinState === 'heavy_makeup'
+      ? '本次为带妆拍摄，彩妆可能影响肤色、毛孔与瑕疵判断，建议下次素颜复测。'
+      : '',
     legacy: !!(view && view.legacy),
   };
 }

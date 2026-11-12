@@ -24,6 +24,25 @@
       <view class="summary" wx:if="{{summary}}">{{summary}}</view>
       <view class="meta-line text-muted" wx:if="{{coverageText}}">{{coverageText}}</view>
       <view class="meta-line text-muted" wx:if="{{narrativeSource === 'fallback'}}">本次报告由规则引擎生成</view>
+      <view class="notice-line" wx:if="{{validationMessage}}">{{validationMessage}}</view>
+      <view class="notice-line" wx:if="{{makeupWarning}}">{{makeupWarning}}</view>
+    </view>
+
+    <!-- 重点发现 / 下一步（与 H5 ReportSummary 对齐） -->
+    <view class="card finding-card" wx:if="{{topFinding}}">
+      <view class="finding-head">
+        <text class="finding-title">重点发现：{{topFinding.title}}</text>
+        <text class="finding-sev" wx:if="{{topFinding.severityLabel}}">{{topFinding.severityLabel}}</text>
+      </view>
+      <view class="finding-text" wx:if="{{topFinding.observation}}">{{topFinding.observation}}</view>
+    </view>
+    <view class="card next-card" wx:if="{{nextStep}}">
+      <view class="next-label">下一�?/view>
+      <view class="next-text">{{nextStep}}</view>
+    </view>
+    <view class="card next-card" wx:if="{{nextFocusText}}">
+      <view class="next-label">复测重点</view>
+      <view class="next-text">{{nextFocusText}}<text wx:if="{{next.retestInDays}}"> · 建议 {{next.retestInDays}} 天后复测</text></view>
     </view>
 
     <!-- 十维评分：雷达图 + 数据明细列表 -->
@@ -43,6 +62,9 @@
         <view class="dim-detail text-muted" wx:if="{{item.details}}">{{item.details}}</view>
         <view class="dim-detail text-muted" wx:if="{{item.notVisible}}">图片不足以判断</view>
         <view class="dim-detail text-muted" wx:if="{{item.lowConfidence}}">置信度较低，仅供谨慎参考</view>
+        <view class="dim-detail text-muted" wx:if="{{item.blackheads !== null || item.pimples !== null}}">
+          黑头 {{item.blackheads !== null ? item.blackheads : '-'}} · 炎性痘 {{item.pimples !== null ? item.pimples : '-'}}
+        </view>
         <view
           class="dim-feedback"
           wx:if="{{sessionId}}"
@@ -83,6 +105,7 @@
         <text class="cond-name">{{item.condition}}</text>
         <text class="cond-sev" wx:if="{{item.severityLabel}}">{{item.severityLabel}}</text>
         <text class="cond-area text-muted" wx:if="{{item.area}}">{{item.area}}</text>
+        <view class="cond-desc text-muted" wx:if="{{item.description}}">{{item.description}}</view>
       </view>
     </view>
 
@@ -93,6 +116,9 @@
         <view class="zone-label">{{item.label}}</view>
         <view class="zone-body">
           <view wx:if="{{item.condition}}">{{item.condition}}</view>
+          <view class="zone-scores" wx:if="{{item.scores.length > 0}}">
+            <text class="zone-score" wx:for="{{item.scores}}" wx:key="key" wx:for-item="score">{{score.label}} {{score.value}}</text>
+          </view>
           <view class="text-muted" wx:if="{{item.advice}}">建议：{{item.advice}}</view>
         </view>
       </view>
@@ -110,11 +136,17 @@
       <view class="routine-note" wx:if="{{routine.routineNote}}">本次微调：{{routine.routineNote}}</view>
       <view class="routine-block" wx:if="{{routine.morning.length > 0}}">
         <view class="routine-label">晨间</view>
-        <view class="routine-step" wx:for="{{routine.morning}}" wx:key="*this">· {{item}}</view>
+        <view class="routine-step" wx:for="{{routine.morning}}" wx:key="text">
+          · {{item.text}}<text class="routine-product" wx:if="{{item.productName}}">（{{item.productName}}）</text>
+          <view class="routine-use text-muted" wx:if="{{item.howToUse}}">{{item.howToUse}}</view>
+        </view>
       </view>
       <view class="routine-block" wx:if="{{routine.night.length > 0}}">
         <view class="routine-label">夜间</view>
-        <view class="routine-step" wx:for="{{routine.night}}" wx:key="*this">· {{item}}</view>
+        <view class="routine-step" wx:for="{{routine.night}}" wx:key="text">
+          · {{item.text}}<text class="routine-product" wx:if="{{item.productName}}">（{{item.productName}}）</text>
+          <view class="routine-use text-muted" wx:if="{{item.howToUse}}">{{item.howToUse}}</view>
+        </view>
       </view>
       <view class="routine-foot text-muted" wx:if="{{routine.formulaCore}}">护肤公式：{{routine.formulaCore}}</view>
       <view class="routine-foot text-muted" wx:if="{{routine.note}}">注意：{{routine.note}}</view>

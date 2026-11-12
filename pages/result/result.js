@@ -244,14 +244,15 @@ Page({
       }
       return {
         label: util.DIMENSION_LABELS[key] || key,
-        score: dim && !dim.notVisible && typeof dim.score === 'number' ? dim.score : 0,
+        score: dim && !dim.notVisible && typeof dim.score === 'number' ? dim.score : null,
       };
-    });
+    }).filter(function (item) { return typeof item.score === 'number'; });
 
     self.setData(Object.assign({}, data, {
       loading: false,
       loadError: '',
       products: products,
+      hasRadar: radarData.length >= 3,
     }), function () {
       self._radarData = radarData;
       self.initRadar();
@@ -268,8 +269,8 @@ Page({
       showError: false,
     }).then(function (res) {
       if (res.status === 'completed' && res.rawResult) {
-        // 缓存失败（存储配额满）不应影响报告展示
-        try { wx.setStorageSync(KEYS.RESULT_PREFIX + sessionId, res.rawResult); } catch (e) {}
+        // 不再把完整 rawResult 写入本地：ReportView 缓存已足够加速回看，
+        // 完整报告含更多敏感字段，减少本地留存面。
         self.renderResult(res.rawResult);
       } else if (res.status === 'completed' && res.result) {
         self.renderResult(res.result);
@@ -317,18 +318,23 @@ Page({
         score: typeof d.score === 'number' ? Math.round(d.score) : null,
         gradeLabel: util.GRADE_LABELS[d.grade] || '',
         details: plainText(d.details || ''),
+        notVisible: d.notVisible === true,
+        lowConfidence: typeof d.confidence === 'number' && d.confidence < 0.5,
+        blackheads: typeof d.blackheads === 'number' ? Math.round(d.blackheads) : null,
+        pimples: typeof d.pimples === 'number' ? Math.round(d.pimples) : null,
       });
     });
 
-    // 雷达图数据：固定十维顺序，缺维度补 0
+    // 雷达图数据：固定十维顺序，只画有分数且可见的维度；
+    // 不可见维度补 0 会误导用户以为该项得分为 0。
     var radarData = RADAR_DIM_ORDER.map(function (key) {
       var d = dims[key] || {};
       return {
         label: util.DIMENSION_LABELS[key] || key,
-        score: typeof d.score === 'number' ? d.score : 0,
+        score: d.notVisible === true || typeof d.score !== 'number' ? null : d.score,
       };
-    });
-    var hasRadar = dimKeys.length >= 3;
+    }).filter(function (item) { return typeof item.score === 'number'; });
+    var hasRadar = radarData.length >= 3;
 
     var zoneList = [];
     var zones = face.zoneAnalysis && typeof face.zoneAnalysis === 'object' ? face.zoneAnalysis : {};
@@ -379,6 +385,49 @@ Page({
     var skinAge = typeof profile.skinAge === 'number' ? profile.skinAge
       : (face.skinAge && face.skinAge.estimated) || null;
     var summary = plainText(consultant.overview || analysis.summary || face.summary || '');
+    var reportV3 = r.reportV3 && typeof r.reportV3 === 'object' ? r.reportV3 : null;
+    var mapRoutineSteps = function (steps) {
+      return (Array.isArray(steps) ? steps : []).map(function (step) {
+        return {
+          text: plainText(step.text || ''),
+          productName: plainText(step.productName || ''),
+          category: plainText(step.category || ''),
+          howToUse: plainText(step.howToUse || ''),
+        };
+      });
+    };
+    var routine = reportV3 && reportV3.routine ? {
+      morning: mapRoutineSteps(reportV3.routine.morning),
+      night: mapRoutineSteps(reportV3.routine.night),
+      note: plainText(reportV3.routine.note || ''),
+      formulaCore: plainText(reportV3.routine.formulaCore || ''),
+      onlyOneSet: plainText(reportV3.routine.onlyOneSet || ''),
+      routineNote: plainText(reportV3.routine.routineNote || ''),
+    } : null;
+    var rawSafety = reportV3 && reportV3.safety ? reportV3.safety : (r.safetyNotes || null);
+    var safetyList = function (value) {
+      return (Array.isArray(value) ? value : []).map(plainText).filter(Boolean);
+    };
+    var safety = rawSafety ? {
+      excluded: safetyList(rawSafety.excluded),
+      actives: safetyList(rawSafety.actives),
+      conflicts: safetyList(rawSafety.conflicts),
+      patchTest: plainText(rawSafety.patchTest || ''),
+      sunProtection: plainText(rawSafety.sunProtection || ''),
+      whenToSeeDoctor: safetyList(rawSafety.whenToSeeDoctor),
+      excludedText: safetyList(rawSafety.excluded).join('、'),
+      activesText: safetyList(rawSafety.actives).join('、'),
+      conflictsText: safetyList(rawSafety.conflicts).join('；'),
+      doctorText: safetyList(rawSafety.whenToSeeDoctor).join('；'),
+    } : null;
+    var next = reportV3 && reportV3.next ? reportV3.next : null;
+    var nextFocusText = next && Array.isArray(next.retestFocus)
+      ? next.retestFocus.map(plainText).filter(Boolean).join('、')
+      : '';
+    var scoring = face.scoring || null;
+    var coverageText = scoring && typeof scoring.scoredDimensions === 'number'
+      ? '基于 ' + scoring.scoredDimensions + '/' + (scoring.totalDimensions || 10) + ' 个有效维度'
+      : '';
 
     self.setData({
       loading: false,
@@ -388,6 +437,18 @@ Page({
       skinAge: skinAge,
       overallScore: typeof face.overallScore === 'number' ? Math.round(face.overallScore) : null,
       summary: summary,
+      topFinding: issues.length > 0 ? {
+        title: issues[0].title,
+        severityLabel: issues[0].severityLabel,
+        observation: issues[0].observation,
+      } : null,
+      nextStep: plainText(consultant.routineNote || (issues[0] && issues[0].skincarePlan) || ''),
+      validationMessage: face.validation && face.validation.isValid === false
+        ? plainText(face.validation.message || '')
+        : '',
+      makeupWarning: r.skinState === 'light_makeup' || r.skinState === 'heavy_makeup'
+        ? '本次为带妆拍摄，彩妆可能影响肤色、毛孔与瑕疵判断，建议下次素颜复测。'
+        : '',
       hasRadar: hasRadar,
       dimensionList: dimensionList,
       issues: issues,
@@ -395,6 +456,11 @@ Page({
       zoneList: zoneList,
       conditions: conditions,
       products: products,
+      routine: routine,
+      safety: safety,
+      next: next,
+      nextFocusText: nextFocusText,
+      coverageText: coverageText,
     }, function () {
       self._radarData = radarData;
       self.initRadar();
@@ -471,18 +537,27 @@ Page({
           method: 'GET',
           showError: false,
         }).then(function (res) {
-          return typeof res.percentile === 'number' ? res.percentile : null;
-        }).catch(function () { return null; })
-      : Promise.resolve(null);
+          return {
+            percentile: typeof res.percentile === 'number' ? res.percentile : null,
+            sampleSize: typeof res.sampleSize === 'number' ? res.sampleSize : 0,
+          };
+        }).catch(function () { return { percentile: null, sampleSize: 0 }; })
+      : Promise.resolve({ percentile: null, sampleSize: 0 });
 
-    return percentilePromise.then(function (percentile) {
+    return percentilePromise.then(function (stats) {
+      var testDate = '';
+      var analyzedAt = viewMeta.analyzedAt || self.data.analyzedAt || '';
+      if (typeof analyzedAt === 'string' && analyzedAt.length >= 10) testDate = analyzedAt.slice(0, 10);
       return {
         persona: persona,
         gender: gender,
         nickname: self.data.nickname,
         score: score,
-        percentile: percentile,
+        percentile: stats.percentile,
+        percentileSampleSize: stats.sampleSize,
         advice: advice,
+        testDate: testDate,
+        reportId: self.data.sessionId || '',
       };
     });
   },

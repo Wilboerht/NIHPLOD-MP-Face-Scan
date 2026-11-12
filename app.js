@@ -7,14 +7,22 @@ App({
 
   // 记录隐私授权同意（用于 analyze 请求的 privacyConsent 审计载荷）。
   // 实际授权由微信官方隐私弹窗完成（见 pages/index 的 wx.requirePrivacyAuthorize）。
+  currentUserId: function () {
+    var user = wx.getStorageSync(config.STORAGE_KEYS.USER_INFO) || {};
+    return user && user.id ? String(user.id) : '';
+  },
+
   recordPrivacyConsent: function () {
     var current = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
-    if (current && current.consentedAt && current.version === config.PRIVACY_VERSION) {
+    var ownerId = this.currentUserId();
+    if (current && current.consentedAt && current.version === config.PRIVACY_VERSION &&
+        String(current.userId || '') === ownerId) {
       return;
     }
     wx.setStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED, {
       version: config.PRIVACY_VERSION,
       consentedAt: new Date().toISOString(),
+      userId: ownerId,
     });
   },
 
@@ -22,6 +30,7 @@ App({
   getPrivacyConsentPayload: function () {
     var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
     if (!agreed || !agreed.consentedAt) return null;
+    if (String(agreed.userId || '') !== this.currentUserId()) return null;
     return { version: agreed.version || config.PRIVACY_VERSION, consentedAt: agreed.consentedAt };
   },
 
@@ -30,6 +39,9 @@ App({
     lastConsentError = null;
     var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
     if (!agreed || !agreed.consentedAt || agreed.version !== config.PRIVACY_VERSION) {
+      return Promise.resolve(false);
+    }
+    if (String(agreed.userId || '') !== this.currentUserId()) {
       return Promise.resolve(false);
     }
 

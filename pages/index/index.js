@@ -35,7 +35,9 @@ Page({
   ensurePrivacy: function () {
     var self = this;
     var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
-    if (agreed && agreed.consentedAt && agreed.version === config.PRIVACY_VERSION) {
+    var ownerId = getApp().currentUserId ? getApp().currentUserId() : '';
+    if (agreed && agreed.consentedAt && agreed.version === config.PRIVACY_VERSION &&
+        String(agreed.userId || '') === ownerId) {
       self.setData({ privacyReady: true, privacyChecking: false });
       return;
     }

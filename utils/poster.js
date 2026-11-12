@@ -177,10 +177,27 @@ function drawNoqrOverlays(ctx, input) {
   }
 }
 
+// 证书记录的合规脚注：AI 声明 + 测肤日期 + 报告编号 + 百分位样本量
+function drawFooter(ctx, input) {
+  var parts = ['AI 图像分析，仅供参考，不构成医疗诊断'];
+  if (input.testDate) parts.push('测肤日期 ' + input.testDate);
+  if (input.reportId) {
+    parts.push('报告编号 ' + String(input.reportId).replace(/-/g, '').slice(0, 8).toUpperCase());
+  }
+  if (typeof input.percentileSampleSize === 'number' && input.percentileSampleSize > 0) {
+    parts.push('样本量 ' + input.percentileSampleSize);
+  }
+  ctx.font = '18px ' + FONT_STACK;
+  ctx.fillStyle = 'rgba(50,79,99,0.45)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(fitText(ctx, parts.join(' · '), 1320), CERT_WIDTH / 2, 1872);
+}
+
 /**
  * 生成证书海报并导出临时文件路径
  * canvas: canvas 2d 节点
- * input: { persona, gender, nickname, score, percentile, advice }
+ * input: { persona, gender, nickname, score, percentile, advice, testDate, reportId, percentileSampleSize }
  * variant: 'qr' 标准版（默认）| 'noqr' 分享版
  * resolve(tempFilePath)
  */
@@ -192,6 +209,7 @@ function generatePoster(canvas, input, variant) {
     ctx.drawImage(img, 0, 0, CERT_WIDTH, CERT_HEIGHT);
     if (v === 'noqr') drawNoqrOverlays(ctx, input);
     else drawQrOverlays(ctx, input);
+    drawFooter(ctx, input);
     return new Promise(function (resolve, reject) {
       // 固定导出 1440×1920：canvas 缓冲即输出尺寸，无需 dpr 缩放（导出图不经过屏幕渲染）
       wx.canvasToTempFilePath({

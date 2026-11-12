@@ -1,4 +1,4 @@
-.overview {
+﻿.overview {
   background: var(--color-warm);
   border-radius: 24rpx;
   box-shadow: 0 10rpx 24rpx rgba(43, 43, 43, 0.08);
@@ -289,7 +289,7 @@
   padding: 40rpx 0;
 }
 
-/* 产品详情弹层 */
+/* 浜у搧璇︽儏寮瑰眰 */
 .sheet-mask {
   position: fixed;
   left: 0;
@@ -414,7 +414,7 @@
   line-height: 1.7;
 }
 
-/* 保留纯文本换行（产品介绍等内容来自 textarea 多行输入） */
+/* 淇濈暀绾枃鏈崲琛岋紙浜у搧浠嬬粛绛夊唴瀹规潵鑷?textarea 澶氳杈撳叆锛?*/
 .pd-pre {
   white-space: pre-line;
   word-break: break-all;
@@ -482,7 +482,7 @@
   color: var(--color-primary-strong);
 }
 
-/* ReportView �������� */
+/* ReportView 新增区块 */
 .meta-line {
   margin-top: 8rpx;
   font-size: 22rpx;
@@ -575,3 +575,83 @@
   color: #a08f7c;
   text-align: right;
 }
+
+.notice-line {
+  margin-top: 10rpx;
+  padding: 10rpx 14rpx;
+  border-radius: 10rpx;
+  background: #fbf6ec;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #8a6d4b;
+}
+
+.finding-card, .next-card {
+  border-left: 6rpx solid #c9a87c;
+}
+
+.finding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.finding-title, .next-label {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.finding-sev {
+  flex: none;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+  background: #f3e7d7;
+  font-size: 21rpx;
+  color: #8a6d4b;
+}
+
+.finding-text, .next-text {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.cond-desc {
+  flex-basis: 100%;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.zone-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin: 8rpx 0;
+}
+
+.zone-score {
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  background: #f6f1e8;
+  font-size: 21rpx;
+  color: #8a6d4b;
+}
+
+.routine-product {
+  color: var(--color-text);
+}
+
+.routine-use {
+  margin: 2rpx 0 6rpx 18rpx;
+  font-size: 21rpx;
+  line-height: 1.5;
+}
+
+
+.cond-row { flex-wrap: wrap; }
+.cond-desc { width: 100%; }
+

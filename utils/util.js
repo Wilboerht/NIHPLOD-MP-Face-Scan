@@ -33,13 +33,13 @@ function formatTime(iso) {
 var DIMENSION_LABELS = {
   waterOil: '水油平衡',
   skinTone: '肤色均衡度',
-  spots: '色斑状况',
-  wrinkles: '细纹皱纹',
-  uvDamage: '光老化程度',
-  sensitivity: '肌肤敏感度',
-  darkCircles: '黑眼圈',
+  spots: '色斑控制度',
+  wrinkles: '细纹改善度',
+  uvDamage: '光老化防护度',
+  sensitivity: '屏障耐受度',
+  darkCircles: '眼周状态',
   firmness: '皮肤弹性',
-  acne: '粉刺/痤疮',
+  acne: '粉刺/痤疮控制度',
   radiance: '光泽度',
 };
 
