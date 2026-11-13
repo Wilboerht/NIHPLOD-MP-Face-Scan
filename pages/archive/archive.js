@@ -600,6 +600,7 @@ Page({
 
   // 本地 entries 可能只加载了第一页；按日期改表单前以服务端月份数据为准，避免覆盖旧记录
   fetchEntryByDate: function (dateStr) {
+    var self = this;
     var month = dateStr.slice(0, 7);
     return request({
       base: 'advisory',
@@ -609,7 +610,7 @@ Page({
     }).then(function (res) {
       var list = (res && res.data) || [];
       for (var i = 0; i < list.length; i++) {
-        if (String(list[i].date || '').slice(0, 10) === dateStr && !list[i].auto) {
+        if (String(list[i].date || '').slice(0, 10) === dateStr && !self.isAutoEntry(list[i])) {
           return list[i];
         }
       }

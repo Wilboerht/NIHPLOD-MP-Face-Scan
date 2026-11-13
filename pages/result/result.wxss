@@ -655,3 +655,18 @@
 .cond-row { flex-wrap: wrap; }
 .cond-desc { width: 100%; }
 
+
+.radar-empty {
+  padding: 32rpx;
+  text-align: center;
+  font-size: 24rpx;
+}
+
+.dim-attention {
+  margin-left: 8rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 8rpx;
+  background: #f3e7d7;
+  font-size: 20rpx;
+  color: #a06a2c;
+}

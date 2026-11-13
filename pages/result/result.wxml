@@ -53,6 +53,9 @@
     <view class="card radar-card" wx:if="{{hasRadar}}">
       <canvas type="2d" id="radarCanvas" class="radar-canvas"></canvas>
     </view>
+    <view class="card radar-empty text-muted" wx:if="{{dimensionList.length && !hasRadar}}">
+      本次可判断的维度不足，暂不展示雷达图
+    </view>
     <view class="card" wx:if="{{dimensionList.length}}">
       <view class="dim-item" wx:for="{{dimensionList}}" wx:key="key">
         <view class="dim-row">
@@ -60,7 +63,7 @@
           <view class="dim-bar">
             <view class="dim-bar-inner" style="width: {{item.notVisible ? 0 : (item.score || 0)}}%"></view>
           </view>
-          <view class="dim-score" wx:if="{{!item.notVisible}}">{{item.score}}<text class="dim-grade" wx:if="{{item.gradeLabel}}"> {{item.gradeLabel}}</text></view>
+          <view class="dim-score" wx:if="{{!item.notVisible}}">{{item.score}}<text class="dim-grade" wx:if="{{item.gradeLabel}}"> {{item.gradeLabel}}</text><text class="dim-attention" wx:if="{{item.attention}}">需关注</text></view>
           <view class="dim-score text-muted" wx:else>—</view>
         </view>
         <view class="dim-detail text-muted" wx:if="{{item.details}}">{{item.details}}</view>

@@ -58,7 +58,7 @@ Page({
     self._privacyOwnerId = ownerId;
 
     if (getApp().hasPrivacyConsentForCurrentUser && getApp().hasPrivacyConsentForCurrentUser()) {
-      self.setData({ privacyReady: true, privacyChecking: false });
+      self.setData({ privacyReady: true, privacyChecking: false, sensitiveAgreed: true });
       return;
     }
     if (!wx.requirePrivacyAuthorize) {
