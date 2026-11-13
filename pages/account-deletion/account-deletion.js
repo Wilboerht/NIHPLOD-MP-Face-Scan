@@ -82,7 +82,12 @@ Page({
   },
 
   decorate: function (item) {
+    var scheduledAt = item.scheduledAt ? new Date(item.scheduledAt).getTime() : 0;
+    var pending = item.status
+      ? item.status === 'PENDING'
+      : (Number(item.remainingDays) > 0 || (scheduledAt && scheduledAt > Date.now()));
     return Object.assign({}, item, {
+      status: item.status || (pending ? 'PENDING' : 'PROCESSING'),
       scheduledText: util.formatTime(item.scheduledAt),
     });
   },
@@ -182,18 +187,17 @@ Page({
       showError: false,
     }).then(function (res) {
       self._submitting = false;
-      var data = (res && res.data) || {};
       self.stopCodeCountdown();
       self.setData({
         submitting: false,
-        request: data.request ? self.decorate(data.request) : null,
-        warnings: Array.isArray(data.warnings) ? data.warnings : [],
         confirmed: false,
         reason: '',
         smsCode: '',
         codeSent: false,
       });
       wx.showToast({ title: '已提交注销申请', icon: 'success' });
+      // POST 的 request 回显不是稳定契约，以 GET 的服务端状态为准
+      self.load();
     }).catch(function (err) {
       self._submitting = false;
       self.setData({ submitting: false, error: (err && err.message) || '提交失败，请稍后重试' });

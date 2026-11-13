@@ -1,5 +1,7 @@
 var config = require('../../config.js');
-var request = require('../../utils/request.js').request;
+var auth = require('../../utils/auth.js');
+var requestMod = require('../../utils/request.js');
+var request = requestMod.request;
 var util = require('../../utils/util.js');
 var poster = require('../../utils/poster.js');
 var radar = require('../../utils/radar.js');
@@ -11,8 +13,8 @@ var KEYS = config.STORAGE_KEYS;
 
 // 雷达图固定维度顺序（与 utils/util.js DIMENSION_LABELS 对应）
 var RADAR_DIM_ORDER = [
-  'waterOil', 'skinTone', 'spots', 'wrinkles', 'uvDamage',
-  'sensitivity', 'darkCircles', 'firmness', 'acne', 'radiance',
+  'radiance', 'acne', 'firmness', 'darkCircles', 'sensitivity',
+  'uvDamage', 'wrinkles', 'spots', 'skinTone', 'waterOil',
 ];
 var RADAR_SIZE = 320; // 逻辑 px
 
@@ -192,6 +194,11 @@ Page({
     // 产品详情弹层（对齐 H5 ProductDetailModal）
     detailOpen: false,
     detailProduct: null,
+    carePlans: [],
+    nextFocusText: '',
+    skinAgeRange: '',
+    dataSourceLabel: '',
+    skinStateLabel: '',
   },
 
   onLoad: function (options) {
@@ -220,7 +227,12 @@ Page({
     var self = this;
     reportView.fetchView(sessionId).then(function (view) {
       self.renderView(view);
-    }).catch(function () {
+    }).catch(function (err) {
+      if (err && err.statusCode === 404) {
+        reportView.clearCachedView(sessionId);
+        self.setData({ loading: false, loadError: '报告已归档或不存在' });
+        return;
+      }
       self.fetchResult(sessionId);
     });
   },
@@ -228,6 +240,10 @@ Page({
   renderView: function (view) {
     var self = this;
     var data = reportView.toPageData(view);
+    if (!data.nickname || data.nickname === '护肤达人' || data.nickname === '您') {
+      var currentUser = auth.getUser() || {};
+      data.nickname = currentUser.name || data.nickname || '护肤达人';
+    }
     self._view = view;
     if (!self._viewTracked) {
       self._viewTracked = true;
@@ -342,18 +358,40 @@ Page({
       var z = zones[key] || {};
       var condition = plainText(z.condition || '');
       var advice = plainText(z.advice || '');
-      if (!condition && !advice) return;
+      var zoneScoreKeys = ['oil', 'texture', 'wrinkles', 'spots', 'redness', 'darkCircles', 'firmness', 'contour'];
+      var zoneScoreLabels = {
+        oil: '水油', texture: '细腻度', wrinkles: '无纹度', spots: '无斑度',
+        redness: '无泛红', darkCircles: '眼周', firmness: '紧致度', contour: '轮廓',
+      };
+      var scores = zoneScoreKeys
+        .filter(function (scoreKey) { return typeof z[scoreKey] === 'number'; })
+        .map(function (scoreKey) {
+          return { key: scoreKey, label: zoneScoreLabels[scoreKey], value: Math.round(z[scoreKey]) };
+        });
+      if (!condition && !advice && scores.length === 0) return;
       zoneList.push({
         key: key,
         label: util.ZONE_LABELS[key] || key,
         condition: condition,
         advice: advice,
+        needsAttention: scores.some(function (item) { return item.value < 70; }) || !!condition,
+        scores: scores,
       });
     });
 
-    var issues = (Array.isArray(consultant.issues) ? consultant.issues : []).map(function (i) {
+    var issues = (Array.isArray(consultant.issues) ? consultant.issues : []).map(function (i, issueIndex) {
       var item = i && typeof i === 'object' ? i : {};
+      var evidenceText = (Array.isArray(item.relatedDimensions) ? item.relatedDimensions : [])
+        .map(function (key) {
+          var dim = dims[key];
+          if (!dim || dim.notVisible === true) return '';
+          var label = util.DIMENSION_LABELS[key] || key;
+          return typeof dim.score === 'number' ? label + ' ' + Math.round(dim.score) + ' 分' : label;
+        })
+        .filter(Boolean)
+        .join(' · ');
       return {
+        id: 'legacy-issue-' + issueIndex,
         title: plainText(item.title || ''),
         severityLabel: util.SEVERITY_LABELS[item.severity] || item.severity || '',
         observation: plainText(item.observation || ''),
@@ -361,6 +399,7 @@ Page({
         skincarePlan: plainText(item.skincarePlan || ''),
         lifestylePlan: plainText(item.lifestylePlan || ''),
         medicalBoundary: plainText(item.medicalBoundary || ''),
+        evidenceText: evidenceText,
       };
     });
 
@@ -379,7 +418,8 @@ Page({
       .map(plainText)
       .filter(Boolean);
     var skinTypeLabel = profile.typeLabel || profile.skinTypeLabel
-      || (face.skinType && face.skinType.type)
+      || (r.skinType && r.skinType.typeLabel)
+      || (face.skinType && (face.skinType.typeLabel || face.skinType.type))
       || (typeof face.skinType === 'string' ? face.skinType : '')
       || '';
     var skinAge = typeof profile.skinAge === 'number' ? profile.skinAge
@@ -424,6 +464,32 @@ Page({
     var nextFocusText = next && Array.isArray(next.retestFocus)
       ? next.retestFocus.map(plainText).filter(Boolean).join('、')
       : '';
+    if (!nextFocusText) {
+      nextFocusText = dimensionList
+        .filter(function (item) { return !item.notVisible && typeof item.score === 'number'; })
+        .sort(function (a, b) { return a.score - b.score; })
+        .slice(0, 2)
+        .map(function (item) { return item.label; })
+        .join('、');
+    }
+    var carePlans = issues
+      .filter(function (item) { return !!item.skincarePlan; })
+      .slice(0, 3)
+      .map(function (item, index) {
+        return { id: 'legacy-plan-' + index, title: item.title, text: item.skincarePlan };
+      });
+    var dataSourceLabel = r.dataSource === 'questionnaire'
+      ? '仅问卷'
+      : (r.dataSource ? '面部影像 + 问卷' : '');
+    var skinStateLabelMap = {
+      bare: '纯素颜', sunscreen: '只涂了防晒', washed: '刚洗完脸',
+      light_makeup: '淡妆', heavy_makeup: '浓妆',
+    };
+    var skinStateLabel = skinStateLabelMap[r.skinState] || '';
+    var ageRangeRaw = face.skinAge && face.skinAge.range;
+    var skinAgeRange = Array.isArray(ageRangeRaw) && ageRangeRaw.length === 2
+      ? ageRangeRaw[0] + '–' + ageRangeRaw[1] + ' 岁'
+      : '';
     var scoring = face.scoring || null;
     var coverageText = scoring && typeof scoring.scoredDimensions === 'number'
       ? '基于 ' + scoring.scoredDimensions + '/' + (scoring.totalDimensions || 10) + ' 个有效维度'
@@ -460,7 +526,11 @@ Page({
       safety: safety,
       next: next,
       nextFocusText: nextFocusText,
+      carePlans: carePlans,
       coverageText: coverageText,
+      dataSourceLabel: dataSourceLabel,
+      skinStateLabel: skinStateLabel,
+      skinAgeRange: skinAgeRange,
     }, function () {
       self._radarData = radarData;
       self.initRadar();
@@ -546,12 +616,19 @@ Page({
 
     return percentilePromise.then(function (stats) {
       var testDate = '';
-      var analyzedAt = viewMeta.analyzedAt || self.data.analyzedAt || '';
+      var analyzedAt = viewMeta.analyzedAt
+        ? util.formatTime(viewMeta.analyzedAt)
+        : (self.data.analyzedAt || '');
       if (typeof analyzedAt === 'string' && analyzedAt.length >= 10) testDate = analyzedAt.slice(0, 10);
+      var nickname = self.data.nickname;
+      if (!nickname || nickname === '护肤达人' || nickname === '您') {
+        var currentUser = auth.getUser() || {};
+        nickname = currentUser.name || '护肤达人';
+      }
       return {
         persona: persona,
         gender: gender,
-        nickname: self.data.nickname,
+        nickname: nickname,
         score: score,
         percentile: stats.percentile,
         percentileSampleSize: stats.sampleSize,
@@ -608,42 +685,59 @@ Page({
   // 服务端海报兜底：POST 二进制写临时文件，供 wx.saveImageToPhotosAlbum 使用
   downloadServerPoster: function (variant) {
     var self = this;
-    var token = '';
-    try { token = wx.getStorageSync(KEYS.ACCESS_TOKEN) || ''; } catch (e) {}
     var viewMeta = (self._view && self._view.meta) || {};
     var raw = self._rawResult || {};
     var gender = viewMeta.gender || (raw.faceAnalysis && raw.faceAnalysis.gender && raw.faceAnalysis.gender.value) || 'female';
     var url = config.ADVISORY_BASE_URL.replace(/\/+$/, '') + '/api/advisor/reports/' + encodeURIComponent(self.data.sessionId) + '/poster';
 
-    return new Promise(function (resolve, reject) {
-      wx.request({
-        url: url,
-        method: 'POST',
-        timeout: 30000,
-        responseType: 'arraybuffer',
-        header: Object.assign(
-          { 'Content-Type': 'application/json' },
-          token ? { Authorization: 'Bearer ' + token } : {}
-        ),
-        data: { variant: variant, gender: gender === 'male' ? 'male' : 'female' },
-        success: function (res) {
-          if (res.statusCode < 200 || res.statusCode >= 300 || !res.data) {
-            reject(new Error('服务端海报生成失败'));
-            return;
-          }
-          var filePath = wx.env.USER_DATA_PATH + '/cert-poster-' + Date.now() + '.png';
-          try {
-            wx.getFileSystemManager().writeFile({
-              filePath: filePath,
-              data: res.data,
-              success: function () { resolve(filePath); },
-              fail: function () { reject(new Error('海报保存失败')); },
-            });
-          } catch (e) {
-            reject(new Error('海报保存失败'));
-          }
-        },
-        fail: function () { reject(new Error('海报生成失败，请检查网络')); },
+    function send() {
+      var token = '';
+      try { token = wx.getStorageSync(KEYS.ACCESS_TOKEN) || ''; } catch (e) {}
+      return new Promise(function (resolve, reject) {
+        wx.request({
+          url: url,
+          method: 'POST',
+          timeout: 30000,
+          responseType: 'arraybuffer',
+          header: Object.assign(
+            { 'Content-Type': 'application/json' },
+            token ? { Authorization: 'Bearer ' + token } : {}
+          ),
+          data: { variant: variant, gender: gender === 'male' ? 'male' : 'female' },
+          success: function (res) {
+            if (res.statusCode === 401) {
+              var authErr = new Error('登录已过期');
+              authErr.statusCode = 401;
+              authErr.needRefresh = true;
+              reject(authErr);
+              return;
+            }
+            if (res.statusCode < 200 || res.statusCode >= 300 || !res.data) {
+              reject(new Error('服务端海报生成失败'));
+              return;
+            }
+            var filePath = wx.env.USER_DATA_PATH + '/cert-poster-' + Date.now() + '.png';
+            try {
+              wx.getFileSystemManager().writeFile({
+                filePath: filePath,
+                data: res.data,
+                success: function () { resolve(filePath); },
+                fail: function () { reject(new Error('海报保存失败')); },
+              });
+            } catch (e) {
+              reject(new Error('海报保存失败'));
+            }
+          },
+          fail: function () { reject(new Error('海报生成失败，请检查网络')); },
+        });
+      });
+    }
+
+    return send().catch(function (err) {
+      if (!err || !err.needRefresh) throw err;
+      return requestMod.refreshSession().then(send).catch(function (retryErr) {
+        if (retryErr && retryErr.isSessionStale) throw retryErr;
+        throw retryErr || err;
       });
     });
   },

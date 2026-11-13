@@ -6,6 +6,8 @@ var util = require('./util.js');
 
 var KEYS = config.STORAGE_KEYS;
 var VIEW_CACHE_PREFIX = 'mp_report_view_';
+// 报告会归档/失效，缓存不能永久命中；短 TTL + 重新拉取
+var VIEW_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function cacheKey(sessionId) {
   return VIEW_CACHE_PREFIX + sessionId;
@@ -28,7 +30,9 @@ function getCachedView(sessionId) {
   try {
     var view = wx.getStorageSync(cacheKey(sessionId));
     if (!view || !view.meta) return null;
-    if (view._ownerId !== ownerId) {
+    if (view._ownerId !== ownerId ||
+        !view._fetchedAt ||
+        Date.now() - view._fetchedAt > VIEW_CACHE_TTL_MS) {
       wx.removeStorageSync(cacheKey(sessionId));
       return null;
     }
@@ -49,6 +53,7 @@ function setCachedView(sessionId, view) {
       if (Object.prototype.hasOwnProperty.call(view, key)) cached[key] = view[key];
     }
     cached._ownerId = ownerId;
+    cached._fetchedAt = Date.now();
     wx.setStorageSync(cacheKey(sessionId), cached);
   } catch (e) {}
   // 只保留当前报告视图，避免缓存无限增长
@@ -60,6 +65,11 @@ function setCachedView(sessionId, view) {
       }
     }
   } catch (e) {}
+}
+
+function clearCachedView(sessionId) {
+  if (!sessionId) return;
+  try { wx.removeStorageSync(cacheKey(sessionId)); } catch (e) {}
 }
 
 function fetchView(sessionId) {
@@ -97,6 +107,20 @@ function gradeLabel(item) {
   return '';
 }
 
+var SKIN_STATE_LABELS = {
+  bare: '纯素颜',
+  sunscreen: '只涂了防晒',
+  washed: '刚洗完脸',
+  light_makeup: '淡妆',
+  heavy_makeup: '浓妆',
+};
+
+var DATA_SOURCE_LABELS = {
+  hybrid: '面部影像 + 问卷',
+  questionnaire: '仅问卷',
+  comprehensive: '面部影像 + 问卷',
+};
+
 function toPageData(view) {
   var meta = (view && view.meta) || {};
   var summary = (view && view.summary) || {};
@@ -114,13 +138,20 @@ function toPageData(view) {
       details: d.details || '',
       lowConfidence: !!d.lowConfidence,
       notVisible: !!d.notVisible,
+      attention: !d.notVisible && typeof d.score === 'number' && d.score < 70,
       blackheads: typeof d.blackheads === 'number' ? d.blackheads : null,
       pimples: typeof d.pimples === 'number' ? d.pimples : null,
     };
   });
 
+  var dimByKey = {};
+  dimensionList.forEach(function (d) { dimByKey[d.key] = d; });
+
   var issues = findings.map(function (f) {
-    var evidence = Array.isArray(f.evidence) ? f.evidence : [];
+    var evidence = (Array.isArray(f.evidence) ? f.evidence : []).filter(function (e) {
+      var dim = dimByKey[e.key];
+      return !dim || (!dim.notVisible && !dim.lowConfidence);
+    });
     return {
       id: f.id,
       title: f.title || '',
@@ -147,6 +178,8 @@ function toPageData(view) {
       needsAttention: !!z.needsAttention,
       scores: Array.isArray(z.scores) ? z.scores : [],
     };
+  }).filter(function (z) {
+    return z.needsAttention || z.condition || z.advice || z.scores.length > 0;
   });
 
   var coverage = meta.coverage;
@@ -155,6 +188,9 @@ function toPageData(view) {
     coverageText = '基于 ' + coverage.scored + '/' + coverage.total + ' 个有效维度';
     if (coverage.lowConfidence && coverage.lowConfidence.length) {
       coverageText += ' · ' + coverage.lowConfidence.length + ' 维低置信';
+    }
+    if (coverage.notVisible && coverage.notVisible.length) {
+      coverageText += ' · ' + coverage.notVisible.length + ' 维不可见';
     }
   }
 
@@ -195,6 +231,22 @@ function toPageData(view) {
     doctorText: (Array.isArray(rawSafety.whenToSeeDoctor) ? rawSafety.whenToSeeDoctor : []).join('；'),
   } : null;
 
+  var hasFindingBoundary = issues.some(function (issue) { return !!issue.medicalBoundary; });
+  if (safety && hasFindingBoundary) {
+    safety.whenToSeeDoctor = [];
+    safety.doctorText = '';
+  }
+
+  var next = view && view.next ? view.next : null;
+  var nextFocusText = next && Array.isArray(next.retestFocus)
+    ? next.retestFocus.filter(Boolean).join('、')
+    : '';
+  var skinStateLabel = SKIN_STATE_LABELS[meta.skinState] || '';
+  var dataSourceLabel = DATA_SOURCE_LABELS[meta.dataSource] || '';
+  var skinAgeRange = Array.isArray(meta.skinAgeRange) && meta.skinAgeRange.length === 2
+    ? meta.skinAgeRange[0] + '–' + meta.skinAgeRange[1] + ' 岁'
+    : '';
+
   return {
     viewMeta: meta,
     nickname: meta.nickname || '',
@@ -214,7 +266,12 @@ function toPageData(view) {
     products: view && Array.isArray(view.products) ? view.products : [],
     routine: routine,
     safety: safety,
-    next: view && view.next ? view.next : null,
+    next: next,
+    nextFocusText: nextFocusText,
+    skinAgeRange: skinAgeRange,
+    skinStateLabel: skinStateLabel,
+    dataSource: meta.dataSource || '',
+    dataSourceLabel: dataSourceLabel,
     coverageText: coverageText,
     narrativeSource: meta.narrativeSource || '',
     validationMessage: meta.validationMessage || '',
@@ -230,6 +287,7 @@ function toPageData(view) {
 module.exports = {
   getCachedView: getCachedView,
   setCachedView: setCachedView,
+  clearCachedView: clearCachedView,
   fetchView: fetchView,
   fetchSummary: fetchSummary,
   toPageData: toPageData,

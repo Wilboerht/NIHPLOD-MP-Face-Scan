@@ -18,7 +18,7 @@ module.exports = {
   },
 
   // 隐私协议版本：与子站当前 CONSENT_VERSION 保持一致
-  PRIVACY_VERSION: '2026-10-27',
+  PRIVACY_VERSION: '2026-11-11',
 
   // 微信小店：当前商品级短链/商品 id 存在后端 purchaseLinks 中，
   // 有 shortLink 才显示「微信小店购买」；没有配置时按钮自动隐藏。

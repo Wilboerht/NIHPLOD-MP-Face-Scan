@@ -141,8 +141,21 @@ function shouldRefreshBeforeSend() {
 
 function handleResponse(res, showError, base) {
   var data = res.data;
-  // 2xx 直接放行（analyze 的 202 "分析中"信号也在此返回，由调用方判断）
-  if (res.statusCode >= 200 && res.statusCode < 300) return data;
+  // 2xx 也可能带成功包装的业务失败（success:false），不能直接当成功
+  if (res.statusCode >= 200 && res.statusCode < 300) {
+    if (data && data.success === false) {
+      var businessMessage = extractErrorMessage(data, '请求未成功，请稍后再试');
+      var businessError = new Error(businessMessage);
+      businessError.statusCode = res.statusCode;
+      businessError.data = data;
+      businessError.headers = res.header || {};
+      if (showError) {
+        wx.showToast({ title: String(businessMessage).slice(0, 28), icon: 'none', duration: 2500 });
+      }
+      throw businessError;
+    }
+    return data;
+  }
   // 账号被禁用
   if (res.statusCode === 403 && isAccountDisabledData(data)) {
     // 子站单独禁用：只限制测肤功能，不清主站登录态（用户仍可使用积分/资料等主站能力）
@@ -190,6 +203,8 @@ function request(options) {
   var showError = opts.showError !== false;
   // 区分主站/子站错误语义：子站 ACCOUNT_DISABLED 只限制测肤，不清主站登录态
   var base = opts.base || 'advisory';
+  var authModule = require('./auth.js');
+  var requestEpoch = authModule.getSessionEpoch ? authModule.getSessionEpoch() : null;
 
   function send() {
     var header = Object.assign({}, opts.header || {});
@@ -202,10 +217,17 @@ function request(options) {
 
   // 登录态确实失效：清会话 + 跳登录，返回统一错误
   function sessionExpiredError() {
-    var auth = require('./auth.js');
-    var wasLoggedIn = auth.isLoggedIn();
-    auth.clearSession();
-    if (wasLoggedIn || !auth.isRecentLogout()) redirectToLogin();
+    // 旧请求的 401 不能清掉之后建立的新登录态
+    if (requestEpoch !== null && authModule.getSessionEpoch &&
+        authModule.getSessionEpoch() !== requestEpoch) {
+      var stale = new Error('登录状态已变更');
+      stale.statusCode = 401;
+      stale.isSessionStale = true;
+      return stale;
+    }
+    var wasLoggedIn = authModule.isLoggedIn();
+    authModule.clearSession();
+    if (wasLoggedIn || !authModule.isRecentLogout()) redirectToLogin();
     var err = new Error('登录已过期，请重新登录');
     err.statusCode = 401;
     return err;
@@ -238,6 +260,7 @@ function request(options) {
         function (err) {
           // 刷新失败：仅服务端明确拒绝时清会话回登录页；
           // 网络/5xx/429 保留登录态，错误原样抛给调用方
+          if (err && err.isSessionStale) throw err;
           if (err && err.isRefreshRejected) throw sessionExpiredError();
           throw err;
         }

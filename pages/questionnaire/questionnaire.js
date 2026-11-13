@@ -48,13 +48,20 @@ Page({
   },
 
   onLoad: function () {
-    var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
-    if (!agreed || !agreed.consentedAt || agreed.version !== config.PRIVACY_VERSION) {
+    if (!getApp().hasPrivacyConsentForCurrentUser || !getApp().hasPrivacyConsentForCurrentUser()) {
       wx.reLaunch({ url: '/pages/index/index' });
       return;
     }
     this._advancing = false;
     this._advanceTimer = null;
+    // 同一次答题/拍摄/分析统一使用一个 flow session，保证漏斗可 join；
+    // 若存在失败待重试会话则沿用原 flow，避免换 session 重复扣次。
+    try {
+      if (wx.getStorageSync(config.STORAGE_KEYS.PENDING_ANALYSIS)) analytics.beginFlow();
+      else analytics.startNewFlow();
+    } catch (e) {
+      analytics.beginFlow();
+    }
     analytics.track('questionnaire_start');
     this.fetchQuestions();
     this.checkLimit();

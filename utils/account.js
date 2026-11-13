@@ -66,13 +66,41 @@ function relogin(message) {
 }
 
 // 密码强度校验（与官网一致：8-32 位，含大小写字母与数字）；返回空串表示通过
+function utf8ByteLength(str) {
+  var encoded = encodeURIComponent(str || '');
+  var bytes = 0;
+  for (var i = 0; i < encoded.length; i++) {
+    if (encoded.charAt(i) === '%') { bytes += 1; i += 2; }
+    else bytes += 1;
+  }
+  return bytes;
+}
+
+function isWeakPassword(p) {
+  var lower = p.toLowerCase();
+  var blacklist = [
+    '123456', '12345678', '123456789', '1234567890', 'password', 'qwerty',
+    'abc123', '111111', '000000', 'iloveyou', 'admin123', 'password123',
+    'letmein', 'welcome', 'monkey', 'dragon', 'master', 'sunshine',
+    'princess', 'football', 'baseball', 'superman', 'batman', 'password1',
+    'qwerty123', '1q2w3e4r', 'passw0rd', 'changeme', '123456789a', 'abc123456',
+  ];
+  if (blacklist.indexOf(lower) !== -1) return true;
+  if (/^(.)\1+$/.test(p)) return true;
+  if (/(012345|123456|234567|345678|456789|567890|098765|987654|876543|765432|654321|543210)/.test(p)) return true;
+  if (/(abcdef|bcdefg|cdefgh|defghi|efghij|fghijk|ghijkl|hijklm|ijklmn|jklmno|klmnop|lmnopq|mnopqr|nopqrs|opqrst|pqrstu|qrstuv|rstuvw|stuvwx|tuvwxy|uvwxyz|zyxwvu|yxwvut|xwvuts|wvutsr|vutsrq|utsrqp|tsrqpo|srqpon|rqponm|qponml|ponmlk|onmlkj|nmlkji|mlkjih|lkjihg|kjihgf|jihgfe|ihgfed|hgfedc|gfedcb|fedcba)/.test(lower)) return true;
+  return false;
+}
+
 function validatePassword(password) {
   var p = password || '';
   if (p.length < 8) return '密码至少 8 位';
   if (p.length > 32) return '密码最多 32 位';
+  if (utf8ByteLength(p) > 72) return '密码过长：按 UTF-8 字节计算最多 72 字节';
   if (!/[A-Z]/.test(p)) return '密码需包含大写字母';
   if (!/[a-z]/.test(p)) return '密码需包含小写字母';
   if (!/[0-9]/.test(p)) return '密码需包含数字';
+  if (isWeakPassword(p)) return '密码过于简单，请避免常见弱密码或连续字符';
   return '';
 }
 

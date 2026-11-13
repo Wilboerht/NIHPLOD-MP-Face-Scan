@@ -85,7 +85,7 @@ Page({
     }).catch(function (err) {
       self.setData({ sending: false });
       if (account.isInsufficientScope(err)) {
-        account.relogin('登录状态需要更新，请重新登录');
+        account.toast('当前登录未获得密码管理权限，请退出后重新登录；仍失败请联系客服');
         return;
       }
       account.toast((err && err.message) || '网络异常，验证码发送失败，请稍后再试');
@@ -161,7 +161,7 @@ Page({
     }).catch(function (err) {
       self.setData({ submitting: false });
       if (account.isInsufficientScope(err)) {
-        account.relogin('登录状态需要更新，请重新登录');
+        account.toast('当前登录未获得密码管理权限，请退出后重新登录；仍失败请联系客服');
         return;
       }
       var body = err && err.data;

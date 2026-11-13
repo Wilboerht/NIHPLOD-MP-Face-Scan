@@ -179,19 +179,33 @@ function drawNoqrOverlays(ctx, input) {
 
 // 证书记录的合规脚注：AI 声明 + 测肤日期 + 报告编号 + 百分位样本量
 function drawFooter(ctx, input) {
-  var parts = ['AI 图像分析，仅供参考，不构成医疗诊断'];
-  if (input.testDate) parts.push('测肤日期 ' + input.testDate);
+  var metaParts = [];
+  if (input.testDate) metaParts.push('测肤日期 ' + input.testDate);
   if (input.reportId) {
-    parts.push('报告编号 ' + String(input.reportId).replace(/-/g, '').slice(0, 8).toUpperCase());
+    var compactId = String(input.reportId).replace(/[^0-9A-Za-z]/g, '');
+    metaParts.push('报告编号 ' + compactId.slice(-8).toUpperCase());
   }
-  if (typeof input.percentileSampleSize === 'number' && input.percentileSampleSize > 0) {
-    parts.push('样本量 ' + input.percentileSampleSize);
+  if (typeof input.percentile === 'number' &&
+      typeof input.percentileSampleSize === 'number' &&
+      input.percentileSampleSize > 0) {
+    metaParts.push('样本量 ' + input.percentileSampleSize);
   }
-  ctx.font = '18px ' + FONT_STACK;
+
   ctx.fillStyle = 'rgba(50,79,99,0.45)';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(fitText(ctx, parts.join(' · '), 1320), CERT_WIDTH / 2, 1872);
+
+  if (typeof input.percentile === 'number' && input.percentile < 40) {
+    ctx.font = '17px ' + FONT_STACK;
+    ctx.fillText('肌肤状态会随作息、换季和激素波动变化，本次评分仅代表拍摄当时。', CERT_WIDTH / 2, 1818);
+  }
+
+  ctx.font = '18px ' + FONT_STACK;
+  ctx.fillText('AI 图像分析，仅供参考，不构成医疗诊断', CERT_WIDTH / 2, 1852);
+  if (metaParts.length > 0) {
+    ctx.font = '17px ' + FONT_STACK;
+    ctx.fillText(fitText(ctx, metaParts.join(' · '), 1320), CERT_WIDTH / 2, 1882);
+  }
 }
 
 /**

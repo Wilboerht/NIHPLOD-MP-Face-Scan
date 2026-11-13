@@ -132,6 +132,12 @@ function refresh() {
     },
     timeout: 30000,
   }).then(function (res) {
+    // 旧会话的刷新响应不能影响新登录：必须在解析业务状态前判断代际
+    if (epoch !== sessionEpoch) {
+      var staleErr = new Error('登录状态已变更');
+      staleErr.isSessionStale = true;
+      throw staleErr;
+    }
     var body = res.data || {};
     var payload = body.data || body;
     var accessToken = payload.accessToken || payload.access_token;
@@ -143,11 +149,6 @@ function refresh() {
       err.isRefreshRejected =
         res.statusCode >= 400 && res.statusCode < 500 && res.statusCode !== 429;
       throw err;
-    }
-    if (epoch !== sessionEpoch) {
-      var staleErr = new Error('登录状态已变更');
-      staleErr.isSessionStale = true;
-      throw staleErr;
     }
     saveSession({
       accessToken: accessToken,
@@ -171,6 +172,21 @@ function clearSession(options) {
   wx.removeStorageSync(KEYS.USER_INFO);
   wx.removeStorageSync(KEYS.NEED_BINDING);
   wx.removeStorageSync('mp_bind_token');
+  // 先删除本地临时人脸文件，再清路径，避免登出后沙箱仍残留敏感图片
+  try {
+    var faceFiles = [];
+    var frontPath = wx.getStorageSync(KEYS.FACE_IMAGE_PATH);
+    if (frontPath) faceFiles.push(frontPath);
+    var sidePaths = wx.getStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS);
+    if (Array.isArray(sidePaths)) faceFiles = faceFiles.concat(sidePaths);
+    var fs = wx.getFileSystemManager && wx.getFileSystemManager();
+    if (fs) {
+      faceFiles.forEach(function (filePath) {
+        if (!filePath) return;
+        try { fs.unlink({ filePath: filePath, fail: function () {} }); } catch (e) {}
+      });
+    }
+  } catch (e) {}
   wx.removeStorageSync(KEYS.FACE_IMAGE_PATH);
   wx.removeStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS);
   wx.removeStorageSync(KEYS.ANSWERS);
@@ -179,6 +195,8 @@ function clearSession(options) {
   // 避免每次登录都重复弹隐私授权。
   wx.removeStorageSync(KEYS.LATEST_SESSION);
   wx.removeStorageSync(KEYS.PENDING_ANALYSIS);
+  wx.removeStorageSync('mp_flow_session_id');
+  wx.removeStorageSync('mp_analytics_session_id');
   if (!options || !options.preservePendingRoute) {
     wx.removeStorageSync(KEYS.PENDING_ROUTE);
   }
@@ -240,4 +258,5 @@ module.exports = {
   isLoggedIn: isLoggedIn,
   isRecentLogout: isRecentLogout,
   getUser: getUser,
+  getSessionEpoch: function () { return sessionEpoch; },
 };

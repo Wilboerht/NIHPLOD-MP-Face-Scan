@@ -25,7 +25,7 @@ function drawRadar(canvas, size, dpr, data, centerScore) {
 
   var cx = size / 2;
   var cy = size / 2;
-  var R = size / 2 - 58; // 留出维度标签的空间（长标签防裁切）
+  var R = size / 2 - 74; // 留出维度标签的空间，避免“粉刺/痤疮控制度”等长标签裁切
   var startAngle = -Math.PI / 2; // 第一维在正上方
   var step = (Math.PI * 2) / n;
 
@@ -47,7 +47,7 @@ function drawRadar(canvas, size, dpr, data, centerScore) {
 
   // 轴线 + 维度标签
   ctx.strokeStyle = AXIS_COLOR;
-  ctx.font = '11px sans-serif';
+  ctx.font = '10px sans-serif';
   ctx.fillStyle = LABEL_COLOR;
   for (var j = 0; j < n; j++) {
     var a = startAngle + step * j;

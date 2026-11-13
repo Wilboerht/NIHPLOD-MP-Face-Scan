@@ -14,6 +14,7 @@ Page({
     list: [],
     page: 1,
     totalPages: 1,
+    hasMore: true,
     loadingMore: false,
     skeletonRows: [1, 2, 3],
   },
@@ -29,23 +30,39 @@ Page({
       return;
     }
     this.setData({ notLoggedIn: false });
-    if (this._loaded) return;
+    if (this._loaded) {
+      if (this._needsRefresh) {
+        this._needsRefresh = false;
+        this.fetchHistory(1, { silent: this.data.list.length > 0 });
+      }
+      return;
+    }
     this._loaded = true;
     this.fetchHistory(1);
   },
 
-  // GET /api/advisor/history?page=&limit=&lite=1&view=1
-  // view=1 返回跨端 ReportView 摘要；旧服务端不认识 view 时仍回退 lite 的 analysisResult
+  onHide: function () {
+    if (this._loaded) this._needsRefresh = true;
+  },
+
+  // GET /api/advisor/history?limit=&lite=1&view=1[&before=]
+  // 追加加载用 completedAt 游标，避免 offset 分页在新增/归档时重复或漏记录
   fetchHistory: function (page, options) {
     var self = this;
     var isFirst = page === 1;
     var silent = !!(options && options.silent);
+    if (isFirst) self._lastCompletedAt = '';
     if (isFirst && !silent) self.setData({ loading: true, loadError: '' });
     else if (!isFirst) self.setData({ loadingMore: true });
 
+    var url = '/api/advisor/history?page=' + page + '&limit=' + PAGE_SIZE + '&lite=1&view=1';
+    if (!isFirst && self._lastCompletedAt) {
+      url += '&before=' + encodeURIComponent(self._lastCompletedAt);
+    }
+
     return request({
       base: 'advisory',
-      url: '/api/advisor/history?page=' + page + '&limit=' + PAGE_SIZE + '&lite=1&view=1',
+      url: url,
       method: 'GET',
       showError: false,
     }).then(function (res) {
@@ -54,23 +71,37 @@ Page({
         var ar = s.analysisResult || {};
         var legacyScore = ar.faceAnalysis && typeof ar.faceAnalysis.overallScore === 'number'
           ? Math.round(ar.faceAnalysis.overallScore) : null;
-        var legacyType = (ar.skinProfile && ar.skinProfile.typeLabel) || '';
+        var legacyType = (ar.skinProfile && ar.skinProfile.typeLabel)
+          || (ar.skinAnalysis && ar.skinAnalysis.typeLabel)
+          || (ar.skinType && ar.skinType.typeLabel)
+          || '';
         return {
           sessionId: s.sessionId,
+          completedAt: s.completedAt,
           timeText: util.formatTime(s.completedAt),
           score: typeof v.overallScore === 'number' ? Math.round(v.overallScore) : legacyScore,
           typeLabel: v.skinTypeLabel || legacyType,
           topFinding: v.topFinding && v.topFinding.title ? v.topFinding.title : '',
         };
       });
-      var pagination = res.pagination || { page: page, totalPages: page };
+
+      var merged = isFirst ? items : self.data.list.concat(items);
+      var seen = {};
+      merged = merged.filter(function (item) {
+        if (!item.sessionId || seen[item.sessionId]) return false;
+        seen[item.sessionId] = true;
+        return true;
+      });
+      if (items.length > 0) self._lastCompletedAt = items[items.length - 1].completedAt;
+      var pagination = res.pagination || {};
       self.setData({
         loading: false,
         loadingMore: false,
         loadError: '',
-        list: isFirst ? items : self.data.list.concat(items),
-        page: pagination.page,
-        totalPages: pagination.totalPages || 1,
+        list: merged,
+        page: isFirst ? 1 : self.data.page + 1,
+        totalPages: pagination.totalPages || self.data.totalPages,
+        hasMore: items.length >= PAGE_SIZE,
       });
     }).catch(function (err) {
       self.setData({
@@ -82,7 +113,7 @@ Page({
   },
 
   onLoadMore: function () {
-    if (this.data.loadingMore || this.data.page >= this.data.totalPages) return;
+    if (this.data.loadingMore || !this.data.hasMore || !this._lastCompletedAt) return;
     this.fetchHistory(this.data.page + 1);
   },
 
@@ -112,8 +143,7 @@ Page({
   },
 
   onGoQuestionnaire: function () {
-    var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
-    if (!agreed || !agreed.consentedAt || agreed.version !== config.PRIVACY_VERSION) {
+    if (!getApp().hasPrivacyConsentForCurrentUser || !getApp().hasPrivacyConsentForCurrentUser()) {
       wx.reLaunch({ url: '/pages/index/index' });
       return;
     }

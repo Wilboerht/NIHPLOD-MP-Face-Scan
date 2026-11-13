@@ -17,7 +17,8 @@ function pollDelay(err) {
   var headers = err.headers || {};
   var reset = Number(headers['X-RateLimit-Reset'] || headers['x-ratelimit-reset']);
   if (reset > 0) {
-    var wait = reset * 1000 - Date.now();
+    // 后端返回 epoch milliseconds；兼容历史秒级值
+    var wait = (reset > 1e12 ? reset : reset * 1000) - Date.now();
     if (wait > 0) return Math.min(30000, Math.max(POLL_INTERVAL_MS, wait));
   }
   return 10000;
@@ -52,6 +53,8 @@ Page({
     this._sessionId = '';
     this._faceAnalysis = null;
     this._pendingFingerprint = '';
+    this._textAttempts = 0;
+    this._faceRequiredRetried = false;
     if (!auth.isLoggedIn()) {
       this.setData({ running: false, error: '请先登录后开始分析', stageText: '分析未完成' });
       setTimeout(function () {
@@ -76,6 +79,9 @@ Page({
   ensureConsent: function () {
     var app = getApp();
     if (!app || !app.syncPrivacyConsent) return Promise.resolve(true);
+    if (!app.hasPrivacyConsentForCurrentUser || !app.hasPrivacyConsentForCurrentUser()) {
+      return Promise.resolve(false);
+    }
     function attempt() {
       return app.syncPrivacyConsent();
     }
@@ -126,11 +132,15 @@ Page({
   savePending: function () {
     if (!this._sessionId || !this._pendingFingerprint) return;
     try {
+      var previous = wx.getStorageSync(KEYS.PENDING_ANALYSIS) || null;
+      var createdAt = previous && previous.fingerprint === this._pendingFingerprint
+        ? (previous.createdAt || Date.now())
+        : Date.now();
       wx.setStorageSync(KEYS.PENDING_ANALYSIS, {
         sessionId: this._sessionId,
         fingerprint: this._pendingFingerprint,
         faceAnalysis: this._faceAnalysis || null,
-        createdAt: Date.now(),
+        createdAt: createdAt,
       });
     } catch (e) {}
   },
@@ -144,6 +154,7 @@ Page({
     if (self._running) return;
     self._running = true;
     self._finished = false;
+    self._textAttempts = 0;
     self.stopTimers();
     self.setData({ error: '', stageText: '正在准备…', progress: 2, running: true });
     if (wx.enableAlertBeforeUnload) {
@@ -175,7 +186,7 @@ Page({
       reused = true;
     }
     if (!reused) {
-      self._sessionId = uuid();
+      self._sessionId = analytics.getFlowSessionId() || uuid();
       self._faceAnalysis = null;
       self.clearPending();
     }
@@ -224,9 +235,15 @@ Page({
           },
         }).then(function (faceAnalysis) {
           if (faceAnalysis && faceAnalysis.status === 'analyzing') {
+            // 兼容服务端异步视觉任务：等 phase 进入 face_completed 后再补发 analyze
             self._faceAnalysis = null;
             self.savePending();
-            return null;
+            return self.pollStatus(sessionId, ['face_completed', 'completed']).then(function (status) {
+              if (status.status === 'completed') {
+                return { __completedResult: status.rawResult };
+              }
+              return null;
+            });
           }
           self._faceAnalysis = faceAnalysis || null;
           self.savePending();
@@ -237,36 +254,13 @@ Page({
 
     facePromise
       .then(function (faceAnalysis) {
+        if (self._finished) throw new Error('分析已取消');
+        if (faceAnalysis && faceAnalysis.__completedResult) return faceAnalysis.__completedResult;
         self.setData({ stageText: '正在生成专属护肤报告…', progress: 65 });
-        // 昵称随 analyze 上报：子站 analyze 会把它写入报告/证书；
-        // 主站昵称上限 20，子站 schema 已同步放宽到 20
         var user = auth.getUser() || {};
         var nickname = String(user.name || '').trim();
         if (nickname.length > 20) nickname = nickname.slice(0, 20);
-
-        // POST /api/advisor/analyze（H5 AnalyzeRequestSchema）
-        // 202 → 已有同 session 请求在分析中，转轮询 session/status
-        return request({
-          base: 'advisory',
-          url: '/api/advisor/analyze',
-          method: 'POST',
-          timeout: 100000,
-          showError: false,
-          data: {
-            answers: answers,
-            faceAnalysis: faceAnalysis || undefined,
-            sessionId: sessionId,
-            nickname: nickname || undefined,
-            privacyConsent: getApp().getPrivacyConsentPayload() || undefined,
-            clientDate: util.clientDateStr(new Date()),
-            skinState: skinState,
-          },
-        }).then(function (res) {
-          if (res && res.status === 'analyzing') {
-            return self.pollResult(sessionId);
-          }
-          return res;
-        });
+        return self.submitAnalyze(sessionId, answers, skinState, nickname);
       })
       .then(function (result) {
         if (self._finished) return;
@@ -289,6 +283,9 @@ Page({
         // 分析完成：本地不再需要人脸照片路径（报告/证书均不依赖）
         try { wx.removeStorageSync(KEYS.FACE_IMAGE_PATH); } catch (e) {}
         try { wx.removeStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS); } catch (e) {}
+        try { wx.removeStorageSync(KEYS.ANSWERS); } catch (e) {}
+        try { wx.removeStorageSync(KEYS.SKIN_STATE); } catch (e) {}
+        analytics.endFlow();
         self._faceAnalysis = null;
         self._running = false;
         self._finished = true;
@@ -301,7 +298,18 @@ Page({
       })
       .catch(function (err) {
         if (self._finished) return;
-        if (err && err.statusCode === 409 && self._sessionId) {
+        var errorPayload = err && err.data && err.data.error ? err.data.error : null;
+        var errorCode = errorPayload && errorPayload.code;
+        if (errorCode === 'FACE_REQUIRED' && !self._faceRequiredRetried) {
+          // 本地缓存的 faceAnalysis 与服务端不一致：清缓存，重新走一次视觉分析
+          self._faceRequiredRetried = true;
+          self._faceAnalysis = null;
+          self.savePending();
+          self._running = false;
+          self.run();
+          return;
+        }
+        if (err && err.statusCode === 409 && errorCode === 'ANALYSIS_COMPLETED' && self._sessionId) {
           self._finished = true;
           self._running = false;
           self.stopTimers();
@@ -349,7 +357,10 @@ Page({
       return compressForRetry(filePath)
         .then(function (compressedPath) {
           if (!compressedPath) return '';
-          return readBase64(compressedPath);
+          return readBase64(compressedPath).then(function (value) {
+            try { wx.getFileSystemManager().unlink({ filePath: compressedPath }); } catch (e) {}
+            return value;
+          });
         })
         .then(function (retryBase64) {
           if (!retryBase64 || retryBase64.length > 1400000) {
@@ -360,38 +371,54 @@ Page({
     });
   },
 
-  // 轮询 GET /api/advisor/session/status?sessionId=
-  // completed → {status, sessionId, result, rawResult}；取 rawResult（与 H5 一致）
-  pollResult: function (sessionId) {
+  // 轮询 session/status，直到 completed 或进入指定 phase
+  pollStatus: function (sessionId, untilPhases) {
     var self = this;
     var attempt = 0;
+    var deadline = Date.now() + 180000;
+    var targets = Array.isArray(untilPhases) ? untilPhases : [];
+
     return new Promise(function (resolve, reject) {
       function tick() {
-        if (self._finished) return; // 页面已卸载
+        if (self._finished) {
+          reject(new Error('分析已取消'));
+          return;
+        }
+        if (Date.now() > deadline) {
+          reject(new Error('分析结果准备时间有点长，请重试一次'));
+          return;
+        }
         attempt += 1;
         request({
           base: 'advisory',
           url: '/api/advisor/session/status?sessionId=' + encodeURIComponent(sessionId),
           method: 'GET',
+          timeout: 15000,
           showError: false,
         }).then(function (res) {
-          if (res.status === 'completed') {
-            if (res.rawResult) resolve(res.rawResult);
-            else reject(new Error('分析结果异常，请重试'));
+          if (res && res.status === 'completed') {
+            resolve(res);
             return;
           }
-          if (res.status === 'not_found' || res.status === 'forbidden') {
+          if (res && res.phase && targets.indexOf(res.phase) !== -1) {
+            resolve(res);
+            return;
+          }
+          if (res && (res.status === 'not_found' || res.status === 'forbidden')) {
             reject(new Error('会话不存在或无权访问'));
             return;
           }
-          if (attempt >= POLL_MAX_ATTEMPTS) {
+          if (Date.now() > deadline || attempt >= POLL_MAX_ATTEMPTS) {
             reject(new Error('分析结果准备时间有点长，请重试一次'));
             return;
           }
           self.setData({ progress: Math.min(90, 65 + attempt) });
           self._pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
         }).catch(function (err) {
-          // 会话不存在/无权访问（服务端统一返回 404）→ 立即失败，不再空转轮询
+          if (self._finished) {
+            reject(new Error('分析已取消'));
+            return;
+          }
           if (err && (err.statusCode === 404 || err.statusCode === 403)) {
             reject(new Error('会话不存在或无权访问'));
             return;
@@ -400,8 +427,7 @@ Page({
             reject(new Error('登录已过期，请重新登录'));
             return;
           }
-          // 网络抖动/限流时继续轮询，不轻易失败
-          if (attempt >= POLL_MAX_ATTEMPTS) {
+          if (Date.now() > deadline || attempt >= POLL_MAX_ATTEMPTS) {
             reject(err);
             return;
           }
@@ -409,6 +435,51 @@ Page({
         });
       }
       tick();
+    });
+  },
+
+  pollResult: function (sessionId) {
+    return this.pollStatus(sessionId, []).then(function (res) {
+      if (res && res.rawResult) return res.rawResult;
+      throw new Error('分析结果异常，请重试');
+    });
+  },
+
+  // 提交文本报告；按服务端 phase 决定轮询/补发 analyze
+  submitAnalyze: function (sessionId, answers, skinState, nickname) {
+    var self = this;
+    if (self._finished) return Promise.reject(new Error('分析已取消'));
+    self._textAttempts = (self._textAttempts || 0) + 1;
+
+    return request({
+      base: 'advisory',
+      url: '/api/advisor/analyze',
+      method: 'POST',
+      timeout: 100000,
+      showError: false,
+      data: {
+        answers: answers,
+        sessionId: sessionId,
+        nickname: nickname || undefined,
+        privacyConsent: getApp().getPrivacyConsentPayload() || undefined,
+        clientDate: util.clientDateStr(new Date()),
+        skinState: skinState,
+      },
+    }).then(function (res) {
+      if (!res || res.status !== 'analyzing') return res;
+      var phase = res.phase;
+      if (phase === 'face_analyzing') {
+        return self.pollStatus(sessionId, ['face_completed', 'completed']).then(function (status) {
+          if (status.status === 'completed') return status.rawResult;
+          if (self._textAttempts >= 2) return self.pollResult(sessionId);
+          return self.submitAnalyze(sessionId, answers, skinState, nickname);
+        });
+      }
+      if (phase === 'face_completed') {
+        if (self._textAttempts >= 2) return self.pollResult(sessionId);
+        return self.submitAnalyze(sessionId, answers, skinState, nickname);
+      }
+      return self.pollResult(sessionId);
     });
   },
 
@@ -422,6 +493,7 @@ Page({
 
   onRetry: function () {
     if (this._running) return;
+    this._faceRequiredRetried = false;
     this.run();
   },
 

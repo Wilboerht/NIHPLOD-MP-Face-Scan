@@ -17,7 +17,9 @@
         </view>
         <view class="meta">
           <view wx:if="{{skinTypeLabel}}">肤质：{{skinTypeLabel}}</view>
-          <view wx:if="{{skinAge !== null}}">肌龄：{{skinAge}} 岁</view>
+          <view wx:if="{{skinAge !== null}}">肌龄：{{skinAge}} 岁<text wx:if="{{skinAgeRange}}">（参考 {{skinAgeRange}}）</text></view>
+          <view wx:if="{{dataSourceLabel}}">数据来源：{{dataSourceLabel}}</view>
+          <view wx:if="{{skinStateLabel}}">拍摄状态：{{skinStateLabel}}</view>
           <view class="text-muted" wx:if="{{analyzedAt}}">{{analyzedAt}}</view>
         </view>
       </view>
@@ -26,6 +28,7 @@
       <view class="meta-line text-muted" wx:if="{{narrativeSource === 'fallback'}}">本次报告由规则引擎生成</view>
       <view class="notice-line" wx:if="{{validationMessage}}">{{validationMessage}}</view>
       <view class="notice-line" wx:if="{{makeupWarning}}">{{makeupWarning}}</view>
+      <view class="notice-line" wx:if="{{legacy}}">本报告由旧版分析生成，重新测肤可获得新版完整报告。</view>
     </view>
 
     <!-- 重点发现 / 下一步（与 H5 ReportSummary 对齐） -->
@@ -37,12 +40,12 @@
       <view class="finding-text" wx:if="{{topFinding.observation}}">{{topFinding.observation}}</view>
     </view>
     <view class="card next-card" wx:if="{{nextStep}}">
-      <view class="next-label">下一�?/view>
+      <view class="next-label">下一步</view>
       <view class="next-text">{{nextStep}}</view>
     </view>
     <view class="card next-card" wx:if="{{nextFocusText}}">
       <view class="next-label">复测重点</view>
-      <view class="next-text">{{nextFocusText}}<text wx:if="{{next.retestInDays}}"> · 建议 {{next.retestInDays}} 天后复测</text></view>
+      <view class="next-text">{{nextFocusText}}<text wx:if="{{next && next.retestInDays}}"> · 建议 {{next.retestInDays}} 天后复测</text></view>
     </view>
 
     <!-- 十维评分：雷达图 + 数据明细列表 -->
@@ -55,9 +58,10 @@
         <view class="dim-row">
           <view class="dim-label">{{item.label}}</view>
           <view class="dim-bar">
-            <view class="dim-bar-inner" style="width: {{item.score || 0}}%"></view>
+            <view class="dim-bar-inner" style="width: {{item.notVisible ? 0 : (item.score || 0)}}%"></view>
           </view>
-          <view class="dim-score">{{item.score}}<text class="dim-grade" wx:if="{{item.gradeLabel}}"> {{item.gradeLabel}}</text></view>
+          <view class="dim-score" wx:if="{{!item.notVisible}}">{{item.score}}<text class="dim-grade" wx:if="{{item.gradeLabel}}"> {{item.gradeLabel}}</text></view>
+          <view class="dim-score text-muted" wx:else>—</view>
         </view>
         <view class="dim-detail text-muted" wx:if="{{item.details}}">{{item.details}}</view>
         <view class="dim-detail text-muted" wx:if="{{item.notVisible}}">图片不足以判断</view>
@@ -77,7 +81,7 @@
 
     <!-- 重点问题（v2 顾问报告） -->
     <view class="section-title" wx:if="{{issues.length}}">重点问题</view>
-    <view class="card issue" wx:for="{{issues}}" wx:key="title" wx:for-item="issue">
+    <view class="card issue" wx:for="{{issues}}" wx:key="id" wx:for-item="issue">
       <view class="issue-head">
         <view class="issue-title">{{issue.title}}</view>
         <view class="issue-sev" wx:if="{{issue.severityLabel}}">{{issue.severityLabel}}</view>
@@ -96,6 +100,15 @@
         data-target-key="{{issue.id}}"
         catchtap="onTargetFeedback"
       >哪里不准？</view>
+    </view>
+
+    <!-- 旧版报告/无结构化 routine 时的护理方案 -->
+    <view class="section-title" wx:if="{{carePlans.length && !routine}}">护理方案</view>
+    <view class="card" wx:if="{{carePlans.length && !routine}}">
+      <view class="issue" wx:for="{{carePlans}}" wx:key="id">
+        <view class="issue-title">{{item.title}}</view>
+        <view class="issue-block">{{item.text}}</view>
+      </view>
     </view>
 
     <!-- 检测到的肌肤状况 -->
@@ -148,6 +161,7 @@
           <view class="routine-use text-muted" wx:if="{{item.howToUse}}">{{item.howToUse}}</view>
         </view>
       </view>
+      <view class="routine-foot text-muted" wx:if="{{routine.onlyOneSet}}">极简组合：{{routine.onlyOneSet}}</view>
       <view class="routine-foot text-muted" wx:if="{{routine.formulaCore}}">护肤公式：{{routine.formulaCore}}</view>
       <view class="routine-foot text-muted" wx:if="{{routine.note}}">注意：{{routine.note}}</view>
     </view>

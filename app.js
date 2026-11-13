@@ -23,6 +23,7 @@ App({
       version: config.PRIVACY_VERSION,
       consentedAt: new Date().toISOString(),
       userId: ownerId,
+      scopes: ['privacy', 'face', 'health', 'ai'],
     });
   },
 
@@ -32,6 +33,55 @@ App({
     if (!agreed || !agreed.consentedAt) return null;
     if (String(agreed.userId || '') !== this.currentUserId()) return null;
     return { version: agreed.version || config.PRIVACY_VERSION, consentedAt: agreed.consentedAt };
+  },
+
+  // 登录成功后，把登录前在设备上给出的同版本同意记录绑定到当前账号；
+  // 不存在旧的显式同意时不在这里凭空创建同意。
+  adoptPrivacyConsentForCurrentUser: function () {
+    var current = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
+    var ownerId = this.currentUserId();
+    if (!ownerId || !current || !current.consentedAt || current.version !== config.PRIVACY_VERSION) {
+      return false;
+    }
+    if (current.userId && String(current.userId) !== ownerId) {
+      return false;
+    }
+    wx.setStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED, {
+      version: current.version,
+      consentedAt: current.consentedAt,
+      userId: ownerId,
+      scopes: ['privacy', 'face', 'health', 'ai'],
+    });
+    return true;
+  },
+
+  // 同步微信当前隐私授权状态；用户撤回或平台要求重新授权时，使本地记录失效
+  refreshPrivacyAuthorization: function (callback) {
+    if (!wx.getPrivacySetting) {
+      if (callback) callback(false);
+      return;
+    }
+    wx.getPrivacySetting({
+      success: function (res) {
+        if (res && res.needAuthorization) {
+          try { wx.removeStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED); } catch (e) {}
+        }
+        if (callback) callback(!!(res && res.needAuthorization));
+      },
+      fail: function () { if (callback) callback(false); },
+    });
+  },
+
+  // 当前账号是否已有有效本地同意（含 owner 校验）
+  hasPrivacyConsentForCurrentUser: function () {
+    var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
+    var scopes = agreed && Array.isArray(agreed.scopes) ? agreed.scopes : [];
+    return !!(agreed && agreed.consentedAt &&
+      agreed.version === config.PRIVACY_VERSION &&
+      String(agreed.userId || '') === this.currentUserId() &&
+      ['privacy', 'face', 'health', 'ai'].every(function (scope) {
+        return scopes.indexOf(scope) !== -1;
+      }));
   },
 
   // 将微信平台隐私授权同步到测肤子站（服务端 analyze/face-analyze 强校验）

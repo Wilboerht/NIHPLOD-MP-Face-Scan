@@ -166,6 +166,7 @@ function uploadAvatar(filePath) {
     if (!err || !err.needRefresh) throw err;
     var auth = require('./auth.js');
     return requestMod.refreshSession().then(send).catch(function (retryErr) {
+      if (retryErr && retryErr.isSessionStale) throw retryErr;
       if (retryErr && (retryErr.isRefreshRejected || retryErr.statusCode === 401)) {
         if (!auth.isRecentLogout()) {
           auth.clearSession();

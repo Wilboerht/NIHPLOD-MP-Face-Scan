@@ -39,6 +39,9 @@ function finishLogin() {
   }
   navigate();
   var app = getApp();
+  // 登录前可能已有设备级同意记录（userId 为空）；登录成功后重新绑定到当前账号，
+  // 再进行服务端同意同步，避免新用户主流程在 analyzing 阶段才失败。
+  if (app && app.adoptPrivacyConsentForCurrentUser) app.adoptPrivacyConsentForCurrentUser();
   if (app && app.syncPrivacyConsent) app.syncPrivacyConsent();
 }
 

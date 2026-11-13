@@ -35,10 +35,19 @@ Page({
   },
 
   onLoad: function () {
+    this._authRedirected = false;
+  },
+
+  onShow: function () {
     if (!auth.isLoggedIn()) {
-      wx.navigateTo({ url: '/pages/login/login' });
+      this.setData({ loading: false });
+      if (!this._authRedirected) {
+        this._authRedirected = true;
+        wx.navigateTo({ url: '/pages/login/login' });
+      }
       return;
     }
+    this._authRedirected = false;
     this.loadPending();
   },
 

@@ -48,7 +48,16 @@ function drawTrend(canvas, width, height, dpr, dates, scores) {
     hi = Math.min(100, mid + 6);
   }
 
+  var timestamps = dates.map(function (iso) { return Date.parse(iso); });
+  var validTimes = timestamps.every(function (value) { return Number.isFinite(value); });
+  var minTime = validTimes ? Math.min.apply(null, timestamps) : 0;
+  var maxTime = validTimes ? Math.max.apply(null, timestamps) : 0;
+  var timeSpan = maxTime - minTime;
+
   function px(idx) {
+    if (validTimes && timeSpan > 0) {
+      return padL + plotW * ((timestamps[idx] - minTime) / timeSpan);
+    }
     return padL + (plotW * idx) / (n - 1);
   }
   function py(score) {

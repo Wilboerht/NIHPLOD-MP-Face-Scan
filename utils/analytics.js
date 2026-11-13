@@ -4,8 +4,29 @@ var request = require('./request.js').request;
 var uuid = require('./uuid.js').uuid;
 
 var ANALYTICS_SESSION_KEY = 'mp_analytics_session_id';
+var FLOW_SESSION_KEY = 'mp_flow_session_id';
+
+function getFlowSessionId() {
+  try { return wx.getStorageSync(FLOW_SESSION_KEY) || ''; } catch (e) { return ''; }
+}
+
+function startNewFlow() {
+  var next = uuid();
+  try { wx.setStorageSync(FLOW_SESSION_KEY, next); } catch (e) {}
+  return next;
+}
+
+function beginFlow() {
+  return getFlowSessionId() || startNewFlow();
+}
+
+function endFlow() {
+  try { wx.removeStorageSync(FLOW_SESSION_KEY); } catch (e) {}
+}
 
 function getSessionId() {
+  var flow = getFlowSessionId();
+  if (flow) return flow;
   try {
     var existing = wx.getStorageSync(ANALYTICS_SESSION_KEY);
     if (existing) return existing;
@@ -19,7 +40,7 @@ function getSessionId() {
 
 function setSessionId(sessionId) {
   if (!sessionId) return;
-  try { wx.setStorageSync(ANALYTICS_SESSION_KEY, sessionId); } catch (e) {}
+  try { wx.setStorageSync(FLOW_SESSION_KEY, sessionId); } catch (e) {}
 }
 
 // 只在已登录时发送：后端只保存登录用户事件；未登录调用会触发 401 跳登录，反而干扰主流程
@@ -42,6 +63,10 @@ function track(event, data, sessionId) {
 
 module.exports = {
   getSessionId: getSessionId,
+  getFlowSessionId: getFlowSessionId,
+  startNewFlow: startNewFlow,
+  beginFlow: beginFlow,
+  endFlow: endFlow,
   setSessionId: setSessionId,
   track: track,
 };

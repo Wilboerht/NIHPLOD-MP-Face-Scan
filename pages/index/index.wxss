@@ -123,3 +123,16 @@
   border: 2rpx solid var(--color-primary-strong);
   border-radius: 999rpx;
 }
+
+.sensitive-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin: 24rpx 24rpx 8rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  background: rgba(61, 68, 48, 0.06);
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}

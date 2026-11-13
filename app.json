@@ -25,6 +25,9 @@
   },
   "style": "v2",
   "lazyCodeLoading": "requiredComponents",
+  "navigateToMiniProgramAppIdList": [
+    "wx9fb8f3d1c719c4ed"
+  ],
   "networkTimeout": {
     "request": 100000,
     "downloadFile": 100000

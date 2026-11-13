@@ -132,6 +132,10 @@ Page({
       }, 800);
       return;
     }
+    if (!getApp().hasPrivacyConsentForCurrentUser || !getApp().hasPrivacyConsentForCurrentUser()) {
+      wx.reLaunch({ url: '/pages/index/index' });
+      return;
+    }
 
     this.applyStep(0);
   },
@@ -190,7 +194,8 @@ Page({
     this._photos = {};
     try { wx.removeStorageSync(config.STORAGE_KEYS.FACE_IMAGE_PATH); } catch (e) {}
     try { wx.removeStorageSync(config.STORAGE_KEYS.FACE_IMAGE_SIDE_PATHS); } catch (e) {}
-    try { wx.removeStorageSync(config.STORAGE_KEYS.PENDING_ANALYSIS); } catch (e) {}
+    // 不在这里删除 PENDING_ANALYSIS：返回重拍时保留失败会话，待新照片指纹不匹配时自然失效，
+    // 避免用户重拍后重复占用测肤次数。
     this.setData({ capturing: false });
     this.applyStep(0);
   },
@@ -505,6 +510,11 @@ Page({
           return;
         }
         self.compressPhoto(res.tempImagePath, function (path) {
+          if (path && path !== res.tempImagePath) {
+            try {
+              wx.getFileSystemManager().unlink({ filePath: res.tempImagePath, fail: function () {} });
+            } catch (e) {}
+          }
           self.onStepPhoto(path);
         });
       },
@@ -573,6 +583,8 @@ Page({
     } catch (e) {
       this._completed = false;
       this.setData({ capturing: false });
+      this.applyStep(this.data.stepIndex);
+      this.startFrameLoop();
       wx.showToast({ title: '照片保存失败，请重试', icon: 'none' });
       return;
     }
@@ -582,6 +594,9 @@ Page({
       url: '/pages/analyzing/analyzing',
       fail: function () {
         self._completed = false;
+        self.setData({ capturing: false });
+        self.applyStep(self.data.stepIndex);
+        self.startFrameLoop();
         wx.showToast({ title: '打开分析页失败，请重试', icon: 'none' });
       },
     });

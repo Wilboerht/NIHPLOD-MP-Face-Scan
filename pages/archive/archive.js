@@ -131,10 +131,16 @@ Page({
       this.loadEntries();
       this.loadTrends();
       this.loadTests();
-    } else if (dateChanged) {
+    } else if (dateChanged || this._needsRefresh) {
+      this._needsRefresh = false;
       this.loadEntries();
       this.loadTrends();
+      this.loadTests();
     }
+  },
+
+  onHide: function () {
+    if (this._loaded) this._needsRefresh = true;
   },
 
   onPullDownRefresh: function () {
@@ -427,7 +433,11 @@ Page({
       var legacyScore = ar.faceAnalysis && typeof ar.faceAnalysis.overallScore === 'number'
         ? Math.round(ar.faceAnalysis.overallScore) : null;
       var score = typeof v.overallScore === 'number' ? Math.round(v.overallScore) : legacyScore;
-      var typeLabel = v.skinTypeLabel || (ar.skinProfile && ar.skinProfile.typeLabel) || '';
+      var typeLabel = v.skinTypeLabel
+        || (ar.skinProfile && ar.skinProfile.typeLabel)
+        || (ar.skinAnalysis && ar.skinAnalysis.typeLabel)
+        || (ar.skinType && ar.skinType.typeLabel)
+        || '';
       (byDay[day] = byDay[day] || []).push({
         key: 't' + t.sessionId,
         kind: 'test',
@@ -524,15 +534,17 @@ Page({
       self.setData({ rangeEmpty: true, trendSummary: null });
       return;
     }
-    var latest = Math.round(points[points.length - 1].value);
-    var delta = Math.round((points[points.length - 1].value - points[0].value) * 10) / 10;
-    // setData 回调后再查询 canvas，保证布局渲染后 canvas 节点可查询
+    var latestPoint = points[points.length - 1];
+    var previousPoint = points[points.length - 2];
+    var latest = Math.round(latestPoint.value);
+    var delta = Math.round((latestPoint.value - previousPoint.value) * 10) / 10;
+    // 与 H5 一致：最近一次对比上一次，而不是对比窗口首日
     self.setData({
       rangeEmpty: false,
       trendSummary: {
         label: label,
         latest: latest,
-        deltaText: delta > 0 ? '较首次 +' + delta : delta < 0 ? '较首次 ' + delta : '基本持平',
+        deltaText: delta > 0 ? '较上次 +' + delta : delta < 0 ? '较上次 ' + delta : '较上次基本持平',
         deltaUp: delta > 0,
         deltaDown: delta < 0,
       },
@@ -577,13 +589,48 @@ Page({
     });
   },
 
+  refreshToday: function () {
+    var todayStr = util.clientDateStr(new Date());
+    if (todayStr !== this.data.todayStr) {
+      this._todayStr = todayStr;
+      this.setData({ todayStr: todayStr, minDate: addDays(todayStr, -BACKFILL_DAYS) });
+    }
+    return todayStr;
+  },
+
+  // 本地 entries 可能只加载了第一页；按日期改表单前以服务端月份数据为准，避免覆盖旧记录
+  fetchEntryByDate: function (dateStr) {
+    var month = dateStr.slice(0, 7);
+    return request({
+      base: 'advisory',
+      url: '/api/user/diary?month=' + encodeURIComponent(month) + '&limit=100',
+      method: 'GET',
+      showError: false,
+    }).then(function (res) {
+      var list = (res && res.data) || [];
+      for (var i = 0; i < list.length; i++) {
+        if (String(list[i].date || '').slice(0, 10) === dateStr && !list[i].auto) {
+          return list[i];
+        }
+      }
+      return null;
+    });
+  },
+
   openCheckIn: function (e) {
-    var dateStr = (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.date) || this.data.todayStr;
+    var self = this;
+    var today = this.refreshToday();
+    var dateStr = (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.date) || today;
     dateStr = dateStr.slice(0, 10);
-    if (!withinDays(dateStr, this.data.todayStr, BACKFILL_DAYS)) dateStr = this.data.todayStr;
-    var existing = this.findManualEntry(dateStr);
-    this.applyFormForDate(dateStr, existing);
-    this.setData({ formOpen: true });
+    if (!withinDays(dateStr, today, BACKFILL_DAYS)) dateStr = today;
+    this.fetchEntryByDate(dateStr).then(function (serverEntry) {
+      var existing = serverEntry || self.findManualEntry(dateStr);
+      self.applyFormForDate(dateStr, existing);
+      self.setData({ formOpen: true });
+    }).catch(function () {
+      // 网络失败时不打开空白表单，避免把已有记录覆盖成默认值
+      account.toast('读取当天打卡记录失败，请稍后重试');
+    });
   },
 
   applyFormForDate: function (dateStr, existing) {
@@ -614,9 +661,14 @@ Page({
   noop: function () {},
 
   onFormDateChange: function (e) {
+    var self = this;
     var dateStr = e.detail.value;
-    var existing = this.findManualEntry(dateStr);
-    this.applyFormForDate(dateStr, existing);
+    this.fetchEntryByDate(dateStr).then(function (serverEntry) {
+      var existing = serverEntry || self.findManualEntry(dateStr);
+      self.applyFormForDate(dateStr, existing);
+    }).catch(function () {
+      account.toast('读取当天打卡记录失败，请稍后重试');
+    });
   },
 
   onFormState: function (e) {
@@ -651,6 +703,11 @@ Page({
     if (!STATE_META[this.data.formState]) {
       account.toast('请选择肌肤状态');
       return;
+    }
+    var previousToday = this.data.todayStr;
+    var today = this.refreshToday();
+    if (this.data.formDate === previousToday && previousToday !== today) {
+      this.setData({ formDate: today, formDateLabel: '今天' });
     }
     this._submitting = true;
     this.setData({ saving: true });

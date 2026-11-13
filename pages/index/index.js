@@ -10,6 +10,7 @@ Page({
     statusBarHeight: 20, // 自定义导航栏状态栏高度占位，onLoad 时更新
     privacyReady: false,
     privacyChecking: true,
+    sensitiveAgreed: false,
   },
 
   onLoad: function () {
@@ -28,16 +29,35 @@ Page({
       user: auth.getUser(),
     });
     // 隐私授权前置到页面展示阶段：同意后再点「开始测肤」，
-    // 订阅消息 requestSubscribeMessage 才能留在用户点击调用栈内
+    // 订阅消息 requestSubscribeMessage 才能留在用户点击调用栈内。
+    // 同时检查微信侧授权是否已被撤回，避免本地旧记录继续放行。
+    var self = this;
+    var app = getApp();
+    if (app && app.refreshPrivacyAuthorization) {
+      app.refreshPrivacyAuthorization(function (needAuthorization) {
+        if (needAuthorization) {
+          self._privacyPrompted = false;
+          self.setData({ privacyReady: false });
+        }
+        self.ensurePrivacy();
+      });
+      return;
+    }
     this.ensurePrivacy();
   },
 
   ensurePrivacy: function () {
     var self = this;
-    var agreed = wx.getStorageSync(config.STORAGE_KEYS.PRIVACY_AGREED);
     var ownerId = getApp().currentUserId ? getApp().currentUserId() : '';
-    if (agreed && agreed.consentedAt && agreed.version === config.PRIVACY_VERSION &&
-        String(agreed.userId || '') === ownerId) {
+    if (self._privacyOwnerId !== undefined && self._privacyOwnerId !== ownerId) {
+      // 登录/切换账号后，上一位用户的同意状态不能继续复用
+      self._privacyPrompted = false;
+      self._privacyPrompting = false;
+      self.setData({ privacyReady: false, privacyChecking: true });
+    }
+    self._privacyOwnerId = ownerId;
+
+    if (getApp().hasPrivacyConsentForCurrentUser && getApp().hasPrivacyConsentForCurrentUser()) {
       self.setData({ privacyReady: true, privacyChecking: false });
       return;
     }
@@ -55,8 +75,7 @@ Page({
     self._privacyPrompting = true;
     wx.requirePrivacyAuthorize({
       success: function () {
-        getApp().recordPrivacyConsent();
-        getApp().syncPrivacyConsent();
+        // 微信平台弹窗不等同于敏感个人信息单独同意；真正写入同意记录由下方复选框触发
         self._privacyPrompting = false;
         self.setData({ privacyReady: true, privacyChecking: false });
       },
@@ -80,11 +99,9 @@ Page({
     self._privacyPrompting = true;
     wx.requirePrivacyAuthorize({
       success: function () {
-        getApp().recordPrivacyConsent();
-        getApp().syncPrivacyConsent();
         self._privacyPrompting = false;
         self.setData({ privacyReady: true, privacyChecking: false });
-        wx.showToast({ title: '已同意隐私政策，请再次点击开始测肤', icon: 'none', duration: 2500 });
+        wx.showToast({ title: '已同意隐私政策，请勾选敏感信息授权后开始测肤', icon: 'none', duration: 2500 });
       },
       fail: function () {
         self._privacyPrompting = false;
@@ -110,16 +127,22 @@ Page({
     wx.navigateTo({ url: '/pages/legal/legal?type=terms' });
   },
 
+  onToggleSensitive: function () {
+    this.setData({ sensitiveAgreed: !this.data.sensitiveAgreed });
+  },
+
   onStart: function () {
     if (!this.data.privacyReady) {
       this.onAgreePrivacy();
       return;
     }
-    // 低版本基础库没有官方隐私授权 API：以「开始测肤即表示同意」的明示文案记录同意
-    if (!wx.requirePrivacyAuthorize) {
-      getApp().recordPrivacyConsent();
-      getApp().syncPrivacyConsent();
+    if (!this.data.sensitiveAgreed) {
+      wx.showToast({ title: '请先单独同意处理面部照片与健康信息', icon: 'none' });
+      return;
     }
+    // 只在实际开始测肤时写入/同步全量 scopes，避免未勾选就记录敏感信息同意
+    getApp().recordPrivacyConsent();
+    getApp().syncPrivacyConsent();
     if (!auth.isLoggedIn()) {
       wx.navigateTo({ url: '/pages/login/login' });
       return;

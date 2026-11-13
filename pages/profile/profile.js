@@ -110,7 +110,10 @@ Page({
     }).then(function (res) {
       var list = res && res.data && res.data.addresses;
       if (Array.isArray(list)) self.setData({ addressLabel: list.length > 0 ? '已设置' : '未设置' });
-    }).catch(function () {});
+    }).catch(function (err) {
+      // 地址接口可能因 OAuth scope/allowlist 拒绝，不能静默显示为未设置
+      self.setData({ addressLabel: err && err.statusCode === 403 ? '暂不可用' : '加载失败' });
+    });
   },
 
   // 会员等级 + AI 测肤用量（对齐 H5 VipPanel loadSkinTestUsage 的展示口径）
