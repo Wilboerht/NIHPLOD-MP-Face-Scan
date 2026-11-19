@@ -3,6 +3,8 @@ var request = require('../../utils/request.js').request;
 var auth = require('../../utils/auth.js');
 var analytics = require('../../utils/analytics.js');
 
+var DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 // 前置条件判断（同 H5 Question.dependsOn：equals / notEquals / contains）
 // 另含 H5 questions/page.tsx 的硬编码规则：男性不显示孕期/经期题
 function isQuestionVisible(q, answers) {
@@ -54,12 +56,46 @@ Page({
     }
     this._advancing = false;
     this._advanceTimer = null;
-    // 同一次答题/拍摄/分析统一使用一个 flow session，保证漏斗可 join；
-    // 若存在失败待重试会话则沿用原 flow，避免换 session 重复扣次。
+    // 恢复未完成的问卷草稿；flow 轮换规则见下方（避免旧失败/已完成会话被复用）
+    var saved = {};
+    var hasPending = false;
     try {
-      if (wx.getStorageSync(config.STORAGE_KEYS.PENDING_ANALYSIS)) analytics.beginFlow();
-      else analytics.startNewFlow();
-    } catch (e) {
+      hasPending = !!wx.getStorageSync(config.STORAGE_KEYS.PENDING_ANALYSIS);
+      var savedAt = Number(wx.getStorageSync(config.STORAGE_KEYS.ANSWERS_SAVED_AT)) || 0;
+      if (savedAt && Date.now() - savedAt <= DRAFT_TTL_MS) {
+        saved = wx.getStorageSync(config.STORAGE_KEYS.ANSWERS) || {};
+      } else if (hasPending) {
+        // 旧版本 pending 可能没有草稿时间戳：仍保留答案供失败会话重试
+        saved = wx.getStorageSync(config.STORAGE_KEYS.ANSWERS) || {};
+      } else {
+        wx.removeStorageSync(config.STORAGE_KEYS.ANSWERS);
+        wx.removeStorageSync(config.STORAGE_KEYS.ANSWERS_SAVED_AT);
+      }
+    } catch (e) {}
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) saved = {};
+    if (saved.gender === 'male') {
+      delete saved.pregnancy;
+      delete saved.menstrualCycle;
+    }
+    this._answersReady = true;
+    this.setData({
+      answers: saved,
+      phase: saved.gender ? 'quiz' : 'gender',
+    });
+    var currentUser = auth.getUser() || {};
+    if (currentUser.id) {
+      try { wx.setStorageSync(config.STORAGE_KEYS.FLOW_OWNER, String(currentUser.id)); } catch (e) {}
+    }
+    // 首页已开启的 flow 可直接复用，保证 session_start → 问卷 → 分析可 join；
+    // 只有「上一次已完成报告」「存在失败待恢复会话」或没有 flow 时才轮换。
+    var flowId = analytics.getFlowSessionId();
+    var latestSession = '';
+    try {
+      latestSession = wx.getStorageSync(config.STORAGE_KEYS.LATEST_SESSION) || '';
+    } catch (e) {}
+    if (!flowId || hasPending || (latestSession && latestSession === flowId)) {
+      analytics.startNewFlow();
+    } else {
       analytics.beginFlow();
     }
     analytics.track('questionnaire_start');
@@ -78,6 +114,15 @@ Page({
       clearTimeout(this._advanceTimer);
       this._advanceTimer = null;
     }
+    if (this._answersReady) this.persistAnswers();
+  },
+
+  persistAnswers: function (answers) {
+    try {
+      var data = answers || this.data.answers || {};
+      wx.setStorageSync(config.STORAGE_KEYS.ANSWERS, data);
+      wx.setStorageSync(config.STORAGE_KEYS.ANSWERS_SAVED_AT, Date.now());
+    } catch (e) {}
   },
 
   fetchQuestions: function () {
@@ -166,7 +211,9 @@ Page({
       current: safeIndex,
       question: question,
       multiDraft: initialDraft,
-      maxSelect: question && question.id === 'primaryConcern' ? 3 : 0,
+      maxSelect: question && typeof question.maxSelect === 'number'
+        ? question.maxSelect
+        : (question && question.id === 'primaryConcern' ? 3 : 0),
       progressPercent: percent,
     }, function () {
       wx.pageScrollTo({ scrollTop: 0, duration: 0 });
@@ -207,6 +254,7 @@ Page({
     var answers = Object.assign({}, this.data.answers);
     answers[q.fieldName] = value;
     this.setData({ answers: answers });
+    this.persistAnswers(answers);
     this.refreshDisplayOptions();
     // 让选中态和勾选反馈可见，再进入下一题
     self._advanceTimer = setTimeout(function () {
@@ -257,6 +305,7 @@ Page({
     var answers = Object.assign({}, this.data.answers);
     answers[q.fieldName] = this.data.multiDraft.slice();
     this.setData({ answers: answers });
+    this.persistAnswers(answers);
     self._advanceTimer = setTimeout(function () {
       self._advanceTimer = null;
       self._advancing = false;
@@ -284,6 +333,7 @@ Page({
       delete answers.menstrualCycle;
     }
     this.setData({ answers: answers, phase: 'quiz' });
+    this.persistAnswers(answers);
     // 性别影响题目可见性（男隐藏孕期/经期题），重算可见题目
     this.refreshVisible(this.data.current);
   },
@@ -302,7 +352,7 @@ Page({
 
   finish: function () {
     // answers 做最后兜底（H5 AnalyzeRequestSchema refine 校验）
-    wx.setStorageSync(config.STORAGE_KEYS.ANSWERS, this.data.answers);
+    this.persistAnswers();
     analytics.track('questionnaire_complete', {
       fieldCount: Object.keys(this.data.answers || {}).length,
     });

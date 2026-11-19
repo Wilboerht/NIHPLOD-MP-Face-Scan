@@ -42,3 +42,9 @@
   line-height: 1.8;
   color: var(--color-muted-strong);
 }
+
+.legal-full-link {
+  margin: 12rpx 0;
+  color: var(--color-primary);
+  text-decoration: underline;
+}

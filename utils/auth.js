@@ -71,14 +71,14 @@ function login() {
     }
     // needBinding=true 时无 accessToken：新用户需先一键绑手机号（bindToken 已存）
     if (body.data.needBinding) {
-      clearSession({ preservePendingRoute: true });
+      clearSession({ preservePendingRoute: true, preserveFlow: true });
       saveSession(body.data);
       return body.data;
     }
     if (!body.data.accessToken) {
       throw new Error('登录失败，请重试');
     }
-    clearSession({ preservePendingRoute: true });
+    clearSession({ preservePendingRoute: true, preserveFlow: true });
     saveSession(body.data);
     return body.data;
   });
@@ -103,7 +103,7 @@ function bindPhoneAndLogin(phoneCode) {
       var msg = (body.error && body.error.message) || body.error || '绑定失败，请重试';
       throw new Error(typeof msg === 'string' ? msg : '绑定失败，请重试');
     }
-    clearSession({ preservePendingRoute: true });
+    clearSession({ preservePendingRoute: true, preserveFlow: true });
     saveSession(body.data);
     return body.data;
   });
@@ -161,18 +161,10 @@ function refresh() {
   });
 }
 
-// 清除本地登录态与个人敏感缓存（人脸照片路径 / 问卷答案 / 报告缓存 / 最近会话）
-// 保留 PRIVACY_AGREED：隐私同意是设备级状态，与账号无关
-// 新登录可保留 PENDING_ROUTE，确保登录成功后仍能返回原受保护页面
-function clearSession(options) {
-  sessionEpoch += 1;
-  wx.removeStorageSync(KEYS.ACCESS_TOKEN);
-  wx.removeStorageSync(KEYS.REFRESH_TOKEN);
-  wx.removeStorageSync(KEYS.TOKEN_EXPIRES_AT);
-  wx.removeStorageSync(KEYS.USER_INFO);
-  wx.removeStorageSync(KEYS.NEED_BINDING);
-  wx.removeStorageSync('mp_bind_token');
-  // 先删除本地临时人脸文件，再清路径，避免登出后沙箱仍残留敏感图片
+var PENDING_FLOW_TTL_MS = 30 * 60 * 1000;
+var DRAFT_FLOW_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function unlinkFaceFiles() {
   try {
     var faceFiles = [];
     var frontPath = wx.getStorageSync(KEYS.FACE_IMAGE_PATH);
@@ -180,24 +172,110 @@ function clearSession(options) {
     var sidePaths = wx.getStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS);
     if (Array.isArray(sidePaths)) faceFiles = faceFiles.concat(sidePaths);
     var fs = wx.getFileSystemManager && wx.getFileSystemManager();
-    if (fs) {
-      faceFiles.forEach(function (filePath) {
-        if (!filePath) return;
-        try { fs.unlink({ filePath: filePath, fail: function () {} }); } catch (e) {}
-      });
-    }
+    if (!fs) return;
+    faceFiles.forEach(function (filePath) {
+      if (!filePath) return;
+      try { fs.unlink({ filePath: filePath, fail: function () {} }); } catch (e) {}
+    });
   } catch (e) {}
+}
+
+// 清除在途测肤流程（问卷答案 / 人脸照片 / 失败会话 / 埋点 flow / 最近会话）
+function clearFlowState() {
+  unlinkFaceFiles();
   wx.removeStorageSync(KEYS.FACE_IMAGE_PATH);
   wx.removeStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS);
   wx.removeStorageSync(KEYS.ANSWERS);
+  wx.removeStorageSync(KEYS.ANSWERS_SAVED_AT);
   wx.removeStorageSync(KEYS.SKIN_STATE);
-  // 隐私同意记录保留：账号切换时由 userId 归属校验触发重新同意，
-  // 避免每次登录都重复弹隐私授权。
   wx.removeStorageSync(KEYS.LATEST_SESSION);
   wx.removeStorageSync(KEYS.PENDING_ANALYSIS);
   wx.removeStorageSync('mp_flow_session_id');
   wx.removeStorageSync('mp_analytics_session_id');
-  if (!options || !options.preservePendingRoute) {
+  wx.removeStorageSync(KEYS.FLOW_OWNER);
+}
+
+// App 启动清理：失败会话超过 30 分钟、或没有待恢复会话时，清掉残留照片和流状态。
+// 问卷草稿（ANSWERS）保留用于继续答题；pending 有效时照片/答案一并保留。
+function cleanupStaleFlowState() {
+  var pending = null;
+  try { pending = wx.getStorageSync(KEYS.PENDING_ANALYSIS); } catch (e) {}
+  var valid = pending && pending.sessionId && pending.createdAt &&
+    Date.now() - pending.createdAt <= PENDING_FLOW_TTL_MS;
+  if (valid) {
+    // 旧版本 pending 里可能残留完整面部结果：只保留就绪标记，清掉健康数据
+    if (pending.faceAnalysis) {
+      pending.faceReady = pending.faceAnalysis.status !== 'analyzing';
+      delete pending.faceAnalysis;
+      try { wx.setStorageSync(KEYS.PENDING_ANALYSIS, pending); } catch (e) {}
+    }
+    return false;
+  }
+  var hasDraft = false;
+  try {
+    var answers = wx.getStorageSync(KEYS.ANSWERS) || {};
+    var savedAt = Number(wx.getStorageSync(KEYS.ANSWERS_SAVED_AT)) || 0;
+    hasDraft = savedAt > 0 && Date.now() - savedAt <= DRAFT_FLOW_TTL_MS &&
+      typeof answers === 'object' && !Array.isArray(answers) && Object.keys(answers).length > 0;
+  } catch (e) {}
+  if (!hasDraft) {
+    wx.removeStorageSync(KEYS.ANSWERS);
+    wx.removeStorageSync(KEYS.ANSWERS_SAVED_AT);
+  }
+  wx.removeStorageSync(KEYS.PENDING_ANALYSIS);
+  unlinkFaceFiles();
+  wx.removeStorageSync(KEYS.FACE_IMAGE_PATH);
+  wx.removeStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS);
+  wx.removeStorageSync(KEYS.SKIN_STATE);
+  wx.removeStorageSync('mp_flow_session_id');
+  if (!hasDraft) wx.removeStorageSync(KEYS.FLOW_OWNER);
+  return true;
+}
+
+// 自动续期失败后保留的在途流程，只有登录后确认仍是同一账号才继续使用；
+// 返回 true 表示已因账号切换而清理（调用方应丢弃原 PENDING_ROUTE）。
+function ensureFlowOwnerForCurrentUser() {
+  var owner = wx.getStorageSync(KEYS.FLOW_OWNER) || '';
+  var user = getUser();
+  var currentId = user && user.id ? String(user.id) : '';
+  wx.removeStorageSync(KEYS.FLOW_OWNER);
+  if (!owner) return false;
+  if (!currentId || String(owner) !== currentId) {
+    clearFlowState();
+    return true;
+  }
+  return false;
+}
+
+// 清除本地登录态与个人敏感缓存（人脸照片路径 / 问卷答案 / 报告缓存 / 最近会话）
+// 保留 PRIVACY_AGREED：隐私同意是设备级状态，与账号无关
+// preserveFlow：自动续期失败时保留在途流程，登录后由 ensureFlowOwnerForCurrentUser 判定归属
+// preservePendingRoute：登录成功后仍能返回原受保护页面
+function clearSession(options) {
+  var opts = options || {};
+  var previousUserId = '';
+  try {
+    var currentUser = wx.getStorageSync(KEYS.USER_INFO) || {};
+    previousUserId = currentUser && currentUser.id ? String(currentUser.id) : '';
+  } catch (e) {}
+
+  sessionEpoch += 1;
+  wx.removeStorageSync(KEYS.ACCESS_TOKEN);
+  wx.removeStorageSync(KEYS.REFRESH_TOKEN);
+  wx.removeStorageSync(KEYS.TOKEN_EXPIRES_AT);
+  wx.removeStorageSync(KEYS.USER_INFO);
+  wx.removeStorageSync(KEYS.NEED_BINDING);
+  wx.removeStorageSync('mp_bind_token');
+
+  if (opts.preserveFlow) {
+    if (previousUserId) {
+      try { wx.setStorageSync(KEYS.FLOW_OWNER, previousUserId); } catch (e) {}
+    }
+  } else {
+    clearFlowState();
+  }
+
+  if (!opts.preservePendingRoute) {
     wx.removeStorageSync(KEYS.PENDING_ROUTE);
   }
   try {
@@ -255,6 +333,9 @@ module.exports = {
   refresh: refresh,
   logout: logout,
   clearSession: clearSession,
+  clearFlowState: clearFlowState,
+  cleanupStaleFlowState: cleanupStaleFlowState,
+  ensureFlowOwnerForCurrentUser: ensureFlowOwnerForCurrentUser,
   isLoggedIn: isLoggedIn,
   isRecentLogout: isRecentLogout,
   getUser: getUser,

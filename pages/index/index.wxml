@@ -18,9 +18,18 @@
     <view class="prep-row">全程约 2 分钟，完成后可在历史报告查看</view>
   </view>
 
+  <view wx:if="{{privacyReady}}" class="sensitive-consent" bindtap="onToggleTerms">
+    <checkbox checked="{{termsAgreed}}" color="#3D4430" />
+    <text>我已阅读并同意</text>
+    <text class="privacy-link" catchtap="onOpenPrivacy">《隐私政策》</text>
+    <text>和</text>
+    <text class="privacy-link" catchtap="onOpenTerms">《服务条款》</text>
+    <text>，且已年满 14 周岁</text>
+  </view>
+
   <view wx:if="{{privacyReady}}" class="sensitive-consent" bindtap="onToggleSensitive">
     <checkbox checked="{{sensitiveAgreed}}" color="#3D4430" />
-    <text>我已单独同意处理面部照片、肤质与健康状况，并用于第三方 AI 分析</text>
+    <text>我单独同意处理面部照片、肤质与健康状况，并用于第三方 AI 分析</text>
   </view>
 
   <button class="btn-primary start-btn" bindtap="onStart">开始测肤</button>

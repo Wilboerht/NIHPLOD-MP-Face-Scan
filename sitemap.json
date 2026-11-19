@@ -1,6 +1,9 @@
 {
   "desc": "肌智派测肤小程序页面索引配置",
   "rules": [
+    { "action": "disallow", "page": "pages/login/login" },
+    { "action": "disallow", "page": "pages/questionnaire/questionnaire" },
+    { "action": "disallow", "page": "pages/product-feedback/product-feedback" },
     { "action": "disallow", "page": "pages/result/result" },
     { "action": "disallow", "page": "pages/history/history" },
     { "action": "disallow", "page": "pages/archive/archive" },

@@ -105,6 +105,7 @@ Page({
     this._loaded = false;
     this._submitting = false;
     this._deleting = false;
+    this._seq = { entries: 0, tests: 0, trends: 0, form: 0 };
     var stateOptions = STATE_KEYS.map(function (key) {
       return { key: key, label: STATE_META[key].label, color: STATE_META[key].color };
     });
@@ -133,9 +134,9 @@ Page({
       this.loadTests();
     } else if (dateChanged || this._needsRefresh) {
       this._needsRefresh = false;
-      this.loadEntries();
-      this.loadTrends();
-      this.loadTests();
+      this.loadEntries({ silent: true });
+      this.loadTrends({ silent: true });
+      this.loadTests({ silent: true });
     }
   },
 
@@ -150,7 +151,11 @@ Page({
     }
     var self = this;
     self._loaded = true;
-    Promise.all([self.loadEntries(), self.loadTrends(), self.loadTests()]).then(
+    Promise.all([
+      self.loadEntries({ silent: true }),
+      self.loadTrends({ silent: true }),
+      self.loadTests({ silent: true }),
+    ]).then(
       function () { wx.stopPullDownRefresh(); },
       function () { wx.stopPullDownRefresh(); }
     );
@@ -160,31 +165,55 @@ Page({
   // 数据加载
   // --------------------------------------------------------------------------
 
-  loadEntries: function () {
+  loadEntries: function (options) {
     var self = this;
-    self.setData({ loading: true, loadError: false });
+    var silent = !!(options && options.silent) && this.data.entries.length > 0;
+    var seq = ++self._seq.entries;
+    if (!silent) self.setData({ loading: true, loadError: false, loadingMore: false });
+    else self.setData({ loadingMore: false });
     return request({
       base: 'advisory',
       url: '/api/user/diary?bootstrap=1&limit=' + ENTRIES_PAGE_SIZE,
       method: 'GET',
       showError: false,
     }).then(function (res) {
-      var list = (res && res.data) || [];
+      if (seq !== self._seq.entries) return;
+      var fresh = (res && res.data) || [];
+      var pagination = (res && res.pagination) || {};
+      var total = typeof pagination.total === 'number' ? pagination.total : null;
+      var merged = fresh;
+      if (silent && !(fresh.length === 0 && total === 0)) {
+        // 静默刷新保留已加载的更早分页，避免从结果页返回后档案第一页被重置
+        var oldestFresh = fresh.length ? fresh[fresh.length - 1].date : '';
+        var older = (self.data.entries || []).filter(function (entry) {
+          return !oldestFresh || entry.date < oldestFresh;
+        });
+        merged = fresh.concat(older);
+      }
+      merged.sort(function (a, b) {
+        return String(b.date || '').localeCompare(String(a.date || ''));
+      });
       self.setData({
         loading: false,
-        entries: list,
-        summary: (res && res.summary) || null,
-        entriesHasMore: !!(res && res.pagination && res.pagination.hasMore),
+        loadError: false,
+        entries: merged,
+        summary: (res && res.summary) || self.data.summary,
+        entriesHasMore: total !== null
+          ? merged.length < total
+          : !!pagination.hasMore,
       });
       self.buildViews();
     }).catch(function () {
-      self.setData({ loading: false, loadError: true });
+      if (seq !== self._seq.entries) return;
+      self.setData({ loading: false, loadError: !silent });
     });
   },
 
   // 打卡/删除后的轻量刷新：只刷新首屏，保留已加载的更早记录
   reloadEntries: function () {
     var self = this;
+    var seq = ++self._seq.entries;
+    this.setData({ loadingMore: false });
     var limit = Math.min(50, Math.max(ENTRIES_PAGE_SIZE, this.data.entries.length || 0));
     return request({
       base: 'advisory',
@@ -192,23 +221,34 @@ Page({
       method: 'GET',
       showError: false,
     }).then(function (res) {
+      if (seq !== self._seq.entries) return;
       var fresh = (res && res.data) || [];
+      var pagination = (res && res.pagination) || {};
+      var total = typeof pagination.total === 'number' ? pagination.total : null;
       var oldestFresh = fresh.length ? fresh[fresh.length - 1].date : '';
       var older = oldestFresh
         ? (self.data.entries || []).filter(function (entry) { return entry.date < oldestFresh; })
         : [];
+      var merged = fresh.concat(older);
+      merged.sort(function (a, b) {
+        return String(b.date || '').localeCompare(String(a.date || ''));
+      });
       self.setData({
-        entries: fresh.concat(older),
+        entries: merged,
         summary: (res && res.summary) || self.data.summary,
-        entriesHasMore: !!(res && res.pagination && res.pagination.hasMore),
+        entriesHasMore: total !== null
+          ? merged.length < total
+          : !!pagination.hasMore,
       });
       self.buildViews();
     }).catch(function () {
+      if (seq !== self._seq.entries) return;
       account.toast('列表刷新失败，请稍后再试');
     });
   },
 
   removeEntryDate: function (dateStr) {
+    this._seq.entries += 1;
     var target = String(dateStr || '').slice(0, 10);
     var entries = (this.data.entries || []).filter(function (entry) {
       return entry.date.slice(0, 10) !== target;
@@ -217,19 +257,22 @@ Page({
     this.buildViews();
   },
 
-  loadTrends: function () {
+  loadTrends: function (options) {
     var self = this;
-    self.setData({ trendsLoaded: false, trendsError: false });
+    var silent = !!(options && options.silent) && this.data.trendsLoaded;
+    var seq = ++self._seq.trends;
+    if (!silent) self.setData({ trendsLoaded: false, trendsError: false });
     return request({
       base: 'advisory',
       url: '/api/user/skin-trends',
       method: 'GET',
       showError: false,
     }).then(function (res) {
+      if (seq !== self._seq.trends) return;
       var data = res && res.data;
       if (!data || !Array.isArray(data.dates) || !Array.isArray(data.scores) || data.dates.length < 2) {
         self._trendDays = [];
-        self.setData({ trendsLoaded: true, trendUnlocked: false });
+        self.setData({ trendsLoaded: true, trendsError: false, trendUnlocked: false, rangeEmpty: false, trendSummary: null });
         return;
       }
       // 按本地日历日聚合（同日多次取最后一次），保留最近 90 天
@@ -256,7 +299,7 @@ Page({
         return { key: metric.key, label: metric.label || metric.key };
       });
       if (days.length < 2) {
-        self.setData({ trendsLoaded: true, trendUnlocked: false });
+        self.setData({ trendsLoaded: true, trendsError: false, trendUnlocked: false });
         return;
       }
       var selected = self.data.trendMetric;
@@ -265,36 +308,62 @@ Page({
       }
       self.setData({
         trendsLoaded: true,
+        trendsError: false,
         trendUnlocked: true,
         trendMetrics: self._trendMetrics,
         trendMetric: selected,
       });
       self.applyTrendRange();
     }).catch(function () {
-      self.setData({ trendsLoaded: true, trendsError: true });
+      if (seq !== self._seq.trends) return;
+      if (silent) {
+        self.setData({ trendsLoaded: true });
+      } else {
+        self.setData({ trendsLoaded: true, trendsError: true });
+      }
     });
   },
 
-  loadTests: function () {
+  loadTests: function (options) {
     var self = this;
-    self.setData({ testsLoaded: false, testsError: false });
+    var silent = !!(options && options.silent) && this.data.tests.length > 0;
+    var seq = ++self._seq.tests;
+    if (!silent) self.setData({ testsLoaded: false, testsError: false, loadingMore: false });
+    else self.setData({ loadingMore: false });
     return request({
       base: 'advisory',
       url: '/api/advisor/history?page=1&limit=' + TESTS_PAGE_SIZE + '&lite=1&view=1',
       method: 'GET',
       showError: false,
     }).then(function (res) {
-      var list = (res && res.history) || [];
-      var total = (res && res.pagination && res.pagination.total) || 0;
+      if (seq !== self._seq.tests) return;
+      var fresh = (res && res.history) || [];
+      var rawTotal = res && res.pagination && res.pagination.total;
+      var total = typeof rawTotal === 'number' ? rawTotal : null;
+      var merged = fresh;
+      if (silent && !(fresh.length === 0 && total === 0)) {
+        // 静默刷新保留已加载的更早记录，游标仍指向已合并列表的最后一条
+        var freshIds = {};
+        fresh.forEach(function (item) { freshIds[item.sessionId] = true; });
+        var older = (self.data.tests || []).filter(function (item) {
+          return !freshIds[item.sessionId];
+        });
+        merged = fresh.concat(older);
+        merged.sort(function (a, b) {
+          return String(b.completedAt || '').localeCompare(String(a.completedAt || ''));
+        });
+      }
       self.setData({
         testsLoaded: true,
-        tests: list,
-        testsTotal: total,
-        testsHasMore: list.length < total,
+        testsError: false,
+        tests: merged,
+        testsTotal: total !== null ? total : self.data.testsTotal,
+        testsHasMore: total !== null ? merged.length < total : fresh.length >= TESTS_PAGE_SIZE,
       });
       self.buildViews();
     }).catch(function () {
-      self.setData({ testsLoaded: true, testsError: true });
+      if (seq !== self._seq.tests) return;
+      self.setData({ testsLoaded: true, testsError: !silent });
     });
   },
 
@@ -324,6 +393,7 @@ Page({
         this.setData({ testsHasMore: false });
         return;
       }
+      var testsSeq = ++this._seq.tests;
       this.setData({ loadingMore: true });
       request({
         base: 'advisory',
@@ -331,6 +401,7 @@ Page({
         method: 'GET',
         showError: false,
       }).then(function (res) {
+        if (testsSeq !== self._seq.tests) return;
         var more = (res && res.history) || [];
         // sessionId 去重兜底（游标为排他语义，正常不重叠；防未来口径变化产生重复 key）
         var seen = {};
@@ -346,6 +417,7 @@ Page({
         });
         self.buildViews();
       }).catch(function () {
+        if (testsSeq !== self._seq.tests) return;
         self.setData({ loadingMore: false });
         account.toast('加载失败，请稍后再试');
       });
@@ -358,6 +430,7 @@ Page({
         this.setData({ entriesHasMore: false });
         return;
       }
+      var entriesSeq = ++this._seq.entries;
       this.setData({ loadingMore: true });
       request({
         base: 'advisory',
@@ -365,6 +438,7 @@ Page({
         method: 'GET',
         showError: false,
       }).then(function (res) {
+        if (entriesSeq !== self._seq.entries) return;
         var more = (res && res.data) || [];
         var seen = {};
         self.data.entries.forEach(function (e) { seen[e.id] = true; });
@@ -376,6 +450,7 @@ Page({
         });
         self.buildViews();
       }).catch(function () {
+        if (entriesSeq !== self._seq.entries) return;
         self.setData({ loadingMore: false });
         account.toast('加载失败，请稍后再试');
       });
@@ -433,11 +508,11 @@ Page({
       var legacyScore = ar.faceAnalysis && typeof ar.faceAnalysis.overallScore === 'number'
         ? Math.round(ar.faceAnalysis.overallScore) : null;
       var score = typeof v.overallScore === 'number' ? Math.round(v.overallScore) : legacyScore;
-      var typeLabel = v.skinTypeLabel
+      var typeLabel = util.plainText(v.skinTypeLabel
         || (ar.skinProfile && ar.skinProfile.typeLabel)
         || (ar.skinAnalysis && ar.skinAnalysis.typeLabel)
         || (ar.skinType && ar.skinType.typeLabel)
-        || '';
+        || '');
       (byDay[day] = byDay[day] || []).push({
         key: 't' + t.sessionId,
         kind: 'test',
@@ -445,7 +520,7 @@ Page({
         dateStr: day,
         score: score,
         typeLabel: typeLabel,
-        topFinding: v.topFinding && v.topFinding.title ? v.topFinding.title : '',
+        topFinding: util.plainText(v.topFinding && v.topFinding.title ? v.topFinding.title : ''),
       });
     });
 
@@ -624,11 +699,14 @@ Page({
     var dateStr = (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.date) || today;
     dateStr = dateStr.slice(0, 10);
     if (!withinDays(dateStr, today, BACKFILL_DAYS)) dateStr = today;
+    var seq = ++self._seq.form;
     this.fetchEntryByDate(dateStr).then(function (serverEntry) {
+      if (seq !== self._seq.form) return;
       var existing = serverEntry || self.findManualEntry(dateStr);
       self.applyFormForDate(dateStr, existing);
       self.setData({ formOpen: true });
     }).catch(function () {
+      if (seq !== self._seq.form) return;
       // 网络失败时不打开空白表单，避免把已有记录覆盖成默认值
       account.toast('读取当天打卡记录失败，请稍后重试');
     });
@@ -650,6 +728,7 @@ Page({
   onFormClose: function () {
     if (this.data.saving) return;
     var self = this;
+    this._seq.form += 1;
     this.setData({ formOpen: false }, function () {
       self.redrawTrend();
     });
@@ -664,10 +743,13 @@ Page({
   onFormDateChange: function (e) {
     var self = this;
     var dateStr = e.detail.value;
+    var seq = ++self._seq.form;
     this.fetchEntryByDate(dateStr).then(function (serverEntry) {
+      if (seq !== self._seq.form) return;
       var existing = serverEntry || self.findManualEntry(dateStr);
       self.applyFormForDate(dateStr, existing);
     }).catch(function () {
+      if (seq !== self._seq.form) return;
       account.toast('读取当天打卡记录失败，请稍后重试');
     });
   },
@@ -701,6 +783,7 @@ Page({
   onFormSave: function () {
     var self = this;
     if (this._submitting) return;
+    this._seq.form += 1;
     if (!STATE_META[this.data.formState]) {
       account.toast('请选择肌肤状态');
       return;
@@ -730,6 +813,7 @@ Page({
       });
       var entry = res && res.data;
       if (entry && entry.id) {
+        self._seq.entries += 1;
         var list = self.data.entries.slice();
         var replaced = false;
         for (var i = 0; i < list.length; i++) {
@@ -740,6 +824,9 @@ Page({
           }
         }
         if (!replaced) list.unshift(entry);
+        list.sort(function (a, b) {
+          return String(b.date || '').localeCompare(String(a.date || ''));
+        });
         self.setData({ entries: list });
       }
       var granted = res && res.points && res.points.granted;
@@ -757,6 +844,7 @@ Page({
 
   onFormDelete: function () {
     var self = this;
+    this._seq.form += 1;
     wx.showModal({
       title: '删除打卡记录',
       content: '删除这天的打卡记录？',

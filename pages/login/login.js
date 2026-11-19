@@ -25,24 +25,30 @@ function consumePendingRoute() {
 
 // 登录成功后的统一收尾：优先回到登录前页面，否则返回上一页/首页
 function finishLogin() {
-  function navigate() {
-    var pendingUrl = consumePendingRoute();
-    if (pendingUrl) {
-      wx.reLaunch({ url: pendingUrl });
-      return;
-    }
-    if (getCurrentPages().length > 1) {
-      wx.navigateBack();
-    } else {
-      wx.reLaunch({ url: '/pages/index/index' });
-    }
-  }
-  navigate();
   var app = getApp();
   // 登录前可能已有设备级同意记录（userId 为空）；登录成功后重新绑定到当前账号，
   // 再进行服务端同意同步，避免新用户主流程在 analyzing 阶段才失败。
   if (app && app.adoptPrivacyConsentForCurrentUser) app.adoptPrivacyConsentForCurrentUser();
+  // 自动续期失败时保留的在途流程：只有同一账号才继续恢复，不同账号直接丢弃并回首页
+  var flowCleared = false;
+  try {
+    flowCleared = auth.ensureFlowOwnerForCurrentUser();
+  } catch (e) {}
+  if (flowCleared) {
+    try { wx.removeStorageSync(config.STORAGE_KEYS.PENDING_ROUTE); } catch (e) {}
+  }
   if (app && app.syncPrivacyConsent) app.syncPrivacyConsent();
+
+  var pendingUrl = consumePendingRoute();
+  if (pendingUrl) {
+    wx.reLaunch({ url: pendingUrl });
+    return;
+  }
+  if (getCurrentPages().length > 1) {
+    wx.navigateBack();
+  } else {
+    wx.reLaunch({ url: '/pages/index/index' });
+  }
 }
 
 Page({
@@ -51,29 +57,58 @@ Page({
     needBinding: false,
   },
 
+  onLoad: function () {
+    this._finishTimer = null;
+  },
+
+  onUnload: function () {
+    if (this._finishTimer) {
+      clearTimeout(this._finishTimer);
+      this._finishTimer = null;
+    }
+  },
+
   onLogin: function () {
     var self = this;
     if (self.data.loading) return;
     self.setData({ loading: true });
-    wx.showLoading({ title: '登录中…', mask: true });
 
     function done() {
       wx.hideLoading();
       self.setData({ loading: false });
     }
 
-    auth.login().then(function (data) {
-      done();
-      if (data.needBinding) {
-        // 新用户：切换到手机号一键绑定 UI（免短信，getPhoneNumber 直验）
-        self.setData({ needBinding: true });
-        return;
-      }
-      wx.showToast({ title: '登录成功', icon: 'success' });
-      setTimeout(finishLogin, 800);
-    }).catch(function (err) {
-      done();
-      wx.showToast({ title: (err && err.message) || '登录失败，请重试', icon: 'none' });
+    function startLogin() {
+      wx.showLoading({ title: '登录中…', mask: true });
+      auth.login().then(function (data) {
+        done();
+        if (data.needBinding) {
+          // 新用户：切换到手机号一键绑定 UI（免短信，getPhoneNumber 直验）
+          self.setData({ needBinding: true });
+          return;
+        }
+        wx.showToast({ title: '登录成功', icon: 'success' });
+        self._finishTimer = setTimeout(function () {
+          self._finishTimer = null;
+          finishLogin();
+        }, 800);
+      }).catch(function (err) {
+        done();
+        wx.showToast({ title: (err && err.message) || '登录失败，请重试', icon: 'none' });
+      });
+    }
+
+    // 深链/自动跳转可能绕过首页的隐私弹窗：登录前在用户点击栈内补一次官方授权
+    if (!wx.requirePrivacyAuthorize) {
+      startLogin();
+      return;
+    }
+    wx.requirePrivacyAuthorize({
+      success: startLogin,
+      fail: function () {
+        done();
+        wx.showToast({ title: '需同意隐私政策后才能登录', icon: 'none' });
+      },
     });
   },
 
@@ -121,7 +156,10 @@ Page({
       wx.hideLoading();
       self.setData({ loading: false });
       wx.showToast({ title: '注册成功', icon: 'success' });
-      setTimeout(finishLogin, 800);
+      self._finishTimer = setTimeout(function () {
+        self._finishTimer = null;
+        finishLogin();
+      }, 800);
     }).catch(function (err) {
       wx.hideLoading();
       self.setData({ loading: false });

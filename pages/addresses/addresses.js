@@ -9,6 +9,7 @@ Page({
   data: {
     loading: true,
     loadError: false,
+    loadErrorMessage: '地址加载失败',
     list: [],
     view: 'list', // list | form
     editingId: '',
@@ -42,9 +43,15 @@ Page({
     }).then(function (res) {
       var raw = res && res.data && res.data.addresses;
       var list = Array.isArray(raw) ? raw : [];
-      self.setData({ loading: false, list: list });
-    }).catch(function () {
-      self.setData({ loading: false, loadError: true });
+      self.setData({ loading: false, loadError: false, list: list });
+    }).catch(function (err) {
+      self.setData({
+        loading: false,
+        loadError: true,
+        loadErrorMessage: err && err.statusCode === 403
+          ? '地址管理暂不可用，请稍后重试或联系客服'
+          : '地址加载失败，请检查网络后重试',
+      });
     });
   },
 

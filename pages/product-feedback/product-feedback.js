@@ -20,6 +20,7 @@ Page({
   data: {
     loading: true,
     loadError: '',
+    notLoggedIn: false,
     items: [],
     formOpen: false,
     selected: null,
@@ -40,7 +41,7 @@ Page({
 
   onShow: function () {
     if (!auth.isLoggedIn()) {
-      this.setData({ loading: false });
+      this.setData({ loading: false, notLoggedIn: true, items: [] });
       if (!this._authRedirected) {
         this._authRedirected = true;
         wx.navigateTo({ url: '/pages/login/login' });
@@ -48,7 +49,12 @@ Page({
       return;
     }
     this._authRedirected = false;
+    this.setData({ notLoggedIn: false });
     this.loadPending();
+  },
+
+  onGoLogin: function () {
+    wx.navigateTo({ url: '/pages/login/login' });
   },
 
   loadPending: function () {
@@ -110,8 +116,11 @@ Page({
   },
 
   onRepurchase: function (e) {
-    this.setData({ repurchase: e.currentTarget.dataset.value === 'yes' });
+    var value = e.currentTarget.dataset.value === 'yes';
+    this.setData({ repurchase: this.data.repurchase === value ? null : value });
   },
+
+  noop: function () {},
 
   onNote: function (e) {
     this.setData({ note: e.detail.value || '' });

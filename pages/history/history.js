@@ -1,4 +1,3 @@
-var config = require('../../config.js');
 var request = require('../../utils/request.js').request;
 var auth = require('../../utils/auth.js');
 var util = require('../../utils/util.js');
@@ -21,6 +20,8 @@ Page({
 
   onLoad: function () {
     this._loaded = false;
+    this._fetchSeq = 0;
+    this._refreshing = false;
   },
 
   onShow: function () {
@@ -51,7 +52,8 @@ Page({
     var self = this;
     var isFirst = page === 1;
     var silent = !!(options && options.silent);
-    if (isFirst) self._lastCompletedAt = '';
+    var seq = ++self._fetchSeq;
+    if (isFirst) self._refreshing = silent;
     if (isFirst && !silent) self.setData({ loading: true, loadError: '' });
     else if (!isFirst) self.setData({ loadingMore: true });
 
@@ -66,6 +68,7 @@ Page({
       method: 'GET',
       showError: false,
     }).then(function (res) {
+      if (seq !== self._fetchSeq) return;
       var items = (res.history || []).map(function (s) {
         var v = s.view || {};
         var ar = s.analysisResult || {};
@@ -80,30 +83,56 @@ Page({
           completedAt: s.completedAt,
           timeText: util.formatTime(s.completedAt),
           score: typeof v.overallScore === 'number' ? Math.round(v.overallScore) : legacyScore,
-          typeLabel: v.skinTypeLabel || legacyType,
-          topFinding: v.topFinding && v.topFinding.title ? v.topFinding.title : '',
+          typeLabel: util.plainText(v.skinTypeLabel || legacyType),
+          topFinding: util.plainText(v.topFinding && v.topFinding.title ? v.topFinding.title : ''),
         };
       });
 
-      var merged = isFirst ? items : self.data.list.concat(items);
+      var pagination = res.pagination || {};
+      var total = typeof pagination.total === 'number' ? pagination.total : null;
+      var merged;
+      if (isFirst) {
+        if (silent && !(items.length === 0 && total === 0)) {
+          // 静默刷新保留已加载的更早分页，避免从详情页返回后列表被重置
+          var freshIds = {};
+          items.forEach(function (item) { freshIds[item.sessionId] = true; });
+          var older = self.data.list.filter(function (item) {
+            return !freshIds[item.sessionId];
+          });
+          merged = items.concat(older);
+        } else {
+          merged = items;
+        }
+      } else {
+        merged = self.data.list.concat(items);
+      }
       var seen = {};
       merged = merged.filter(function (item) {
         if (!item.sessionId || seen[item.sessionId]) return false;
         seen[item.sessionId] = true;
         return true;
       });
-      if (items.length > 0) self._lastCompletedAt = items[items.length - 1].completedAt;
-      var pagination = res.pagination || {};
+      if (isFirst && silent) {
+        merged.sort(function (a, b) {
+          return String(b.completedAt || '').localeCompare(String(a.completedAt || ''));
+        });
+      }
+      self._lastCompletedAt = merged.length
+        ? (merged[merged.length - 1].completedAt || '')
+        : '';
+      self._refreshing = false;
       self.setData({
         loading: false,
         loadingMore: false,
         loadError: '',
         list: merged,
-        page: isFirst ? 1 : self.data.page + 1,
+        page: isFirst ? (silent ? Math.max(1, self.data.page) : 1) : self.data.page + 1,
         totalPages: pagination.totalPages || self.data.totalPages,
-        hasMore: items.length >= PAGE_SIZE,
+        hasMore: total !== null ? merged.length < total : items.length >= PAGE_SIZE,
       });
     }).catch(function (err) {
+      if (seq !== self._fetchSeq) return;
+      self._refreshing = false;
       self.setData({
         loading: false,
         loadingMore: false,
@@ -113,7 +142,8 @@ Page({
   },
 
   onLoadMore: function () {
-    if (this.data.loadingMore || !this.data.hasMore || !this._lastCompletedAt) return;
+    if (this.data.loading || this.data.loadingMore || this._refreshing) return;
+    if (!this.data.hasMore || !this._lastCompletedAt) return;
     this.fetchHistory(this.data.page + 1);
   },
 

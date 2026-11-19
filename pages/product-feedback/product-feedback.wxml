@@ -1,6 +1,11 @@
 <view class="container feedback-page safe-bottom">
   <view wx:if="{{loading}}" class="state text-muted">加载中…</view>
 
+  <view wx:elif="{{notLoggedIn}}" class="state">
+    <view class="text-muted">登录后可填写产品使用反馈</view>
+    <button class="btn-primary retry" bindtap="onGoLogin">去登录</button>
+  </view>
+
   <view wx:elif="{{loadError}}" class="state">
     <view class="text-muted">{{loadError}}</view>
     <button class="btn-plain retry" bindtap="loadPending">重试</button>

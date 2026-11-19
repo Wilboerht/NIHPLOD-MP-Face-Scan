@@ -42,6 +42,7 @@ Page({
     stageText: '正在准备…',
     progress: 2,
     error: '',
+    errorAction: 'retry',
     running: false,
   },
 
@@ -52,6 +53,8 @@ Page({
     this._running = false;
     this._sessionId = '';
     this._faceAnalysis = null;
+    this._faceReady = false;
+    this._needsNewSession = false;
     this._pendingFingerprint = '';
     this._textAttempts = 0;
     this._faceRequiredRetried = false;
@@ -69,6 +72,7 @@ Page({
     this._finished = true; // 页面已卸载：防止在途请求回调继续调度轮询
     this._running = false;
     this.stopTimers();
+    if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
   },
 
   stopTimers: function () {
@@ -80,7 +84,8 @@ Page({
     var app = getApp();
     if (!app || !app.syncPrivacyConsent) return Promise.resolve(true);
     if (!app.hasPrivacyConsentForCurrentUser || !app.hasPrivacyConsentForCurrentUser()) {
-      return Promise.resolve(false);
+      // 调用一次同步以重置 lastConsentError，避免复用上一次请求的旧错误
+      return app.syncPrivacyConsent().then(function () { return false; });
     }
     function attempt() {
       return app.syncPrivacyConsent();
@@ -112,17 +117,24 @@ Page({
   // 失败会话暂存：退出页面/重试时复用同一个 sessionId 与服务端预占
   // --------------------------------------------------------------------------
   loadPending: function (fingerprint) {
+    this._needsNewSession = false;
     try {
       var pending = wx.getStorageSync(KEYS.PENDING_ANALYSIS);
-      if (!pending || !pending.sessionId || pending.fingerprint !== fingerprint) return false;
+      if (!pending || !pending.sessionId) return false;
+      var flowId = analytics.getFlowSessionId();
+      if (pending.fingerprint !== fingerprint) {
+        // 旧会话与当前答题/照片不一致；若 flow 也指向旧会话，必须换新的分析 session
+        if (flowId && pending.sessionId === flowId) this._needsNewSession = true;
+        return false;
+      }
       if (Date.now() - (pending.createdAt || 0) > PENDING_TTL_MS) {
         wx.removeStorageSync(KEYS.PENDING_ANALYSIS);
+        if (flowId && pending.sessionId === flowId) this._needsNewSession = true;
         return false;
       }
       this._sessionId = pending.sessionId;
-      this._faceAnalysis = (pending.faceAnalysis && pending.faceAnalysis.status !== 'analyzing')
-        ? pending.faceAnalysis
-        : null;
+      this._faceReady = pending.faceReady === true ||
+        !!(pending.faceAnalysis && pending.faceAnalysis.status !== 'analyzing');
       return true;
     } catch (e) {
       return false;
@@ -136,10 +148,11 @@ Page({
       var createdAt = previous && previous.fingerprint === this._pendingFingerprint
         ? (previous.createdAt || Date.now())
         : Date.now();
+      // 只持久化“面部阶段已完成”标记，不落完整面部分析健康数据；重试由服务端复用结果
       wx.setStorageSync(KEYS.PENDING_ANALYSIS, {
         sessionId: this._sessionId,
         fingerprint: this._pendingFingerprint,
-        faceAnalysis: this._faceAnalysis || null,
+        faceReady: !!(this._faceReady || this._faceAnalysis),
         createdAt: createdAt,
       });
     } catch (e) {}
@@ -149,6 +162,26 @@ Page({
     try { wx.removeStorageSync(KEYS.PENDING_ANALYSIS); } catch (e) {}
   },
 
+  deleteLocalFile: function (filePath) {
+    if (!filePath) return;
+    try {
+      var fs = wx.getFileSystemManager && wx.getFileSystemManager();
+      if (fs) fs.unlink({ filePath: filePath, fail: function () {} });
+    } catch (e) {}
+  },
+
+  errorActionFor: function (err, errorCode) {
+    if (err && err.isConsentTransient) return 'retry';
+    if (err && (err.isConsent || errorCode === 'CONSENT_REQUIRED')) return 'reconsent';
+    if (err && err.isFacePending) return 'retake';
+    if (errorCode === 'FACE_REQUIRED' || errorCode === 'VALIDATION_FAILED') return 'retake';
+    if (err && err.isAdvisoryDisabled) return 'home';
+    if (err && (err.statusCode === 401 || err.statusCode === 403 || err.statusCode === 429)) return 'home';
+    if (errorCode === 'USER_DAILY_LIMIT' || errorCode === 'AI_BUDGET_EXCEEDED') return 'home';
+    if (err && /照片|图片|扫脸|重拍/.test(err.message || '')) return 'retake';
+    return 'retry';
+  },
+
   run: function () {
     var self = this;
     if (self._running) return;
@@ -156,7 +189,7 @@ Page({
     self._finished = false;
     self._textAttempts = 0;
     self.stopTimers();
-    self.setData({ error: '', stageText: '正在准备…', progress: 2, running: true });
+    self.setData({ error: '', errorAction: 'retry', stageText: '正在准备…', progress: 2, running: true });
     if (wx.enableAlertBeforeUnload) {
       wx.enableAlertBeforeUnload({
         message: '分析尚未完成，离开后可能需要重新分析，确定离开吗？',
@@ -166,28 +199,31 @@ Page({
 
     var answers = wx.getStorageSync(KEYS.ANSWERS) || null;
     if (!answers || Object.keys(answers).length === 0) {
-      self.fail('答题数据缺失，请重新填写问卷');
+      self.fail('答题数据缺失，请重新填写问卷', 'home');
       return;
     }
 
     var skinState = wx.getStorageSync(KEYS.SKIN_STATE) || undefined;
     var faceImagePath = wx.getStorageSync(KEYS.FACE_IMAGE_PATH) || '';
     if (!faceImagePath) {
-      self.fail('照片数据缺失，请返回重拍');
+      self.fail('照片数据缺失，请返回重拍', 'retake');
       return;
     }
     var fingerprint = buildFingerprint(answers, skinState, faceImagePath);
 
-    // 同一份答案 + 同一张照片：复用上次失败会话；否则开新会话
-    var reused = false;
-    if (self._sessionId && self._pendingFingerprint === fingerprint) {
-      reused = true;
-    } else if (self.loadPending(fingerprint)) {
-      reused = true;
-    }
+    // 同一份答案 + 同一张照片 + 未过期：复用失败会话（服务端幂等，不重复扣次）。
+    // 指纹不一致（改答案/重拍）必须走新会话，否则服务端会复用旧的面部结果/旧报告。
+    var reused = self.loadPending(fingerprint);
     if (!reused) {
-      self._sessionId = analytics.getFlowSessionId() || uuid();
+      if (self._needsNewSession) {
+        // pending 已过期/已被旧流占用：生成全新分析 session，避免命中旧报告或旧面部结果
+        self._sessionId = uuid();
+        analytics.setSessionId(self._sessionId);
+      } else {
+        self._sessionId = analytics.getFlowSessionId() || uuid();
+      }
       self._faceAnalysis = null;
+      self._faceReady = false;
       self.clearPending();
     }
 
@@ -203,13 +239,24 @@ Page({
     var facePromise = self.ensureConsent().then(function (consentOk) {
       if (!consentOk) {
         var consentError = getApp().getPrivacyConsentError && getApp().getPrivacyConsentError();
-        if (consentError && consentError.statusCode === 409) {
-          throw new Error('隐私政策已更新，请更新小程序后重试');
-        }
-        throw new Error('隐私授权同步失败，请检查网络后重试，或返回首页重新同意隐私政策');
+        var transient = !!(consentError && (
+          consentError.isNetworkError ||
+          consentError.statusCode === 429 ||
+          consentError.statusCode >= 500
+        ));
+        var consentFailed = new Error(
+          consentError && consentError.statusCode === 409
+            ? '隐私政策已更新，请更新小程序后重试'
+            : (transient
+              ? '隐私授权同步失败，请检查网络后重试'
+              : '隐私授权已失效，请返回首页重新同意隐私政策')
+        );
+        consentFailed.isConsent = !transient;
+        consentFailed.isConsentTransient = transient;
+        throw consentFailed;
       }
-      if (self._faceAnalysis) {
-        // 上一次 face-analyze 已成功：跳过视觉调用，直接用缓存结果继续 analyze
+      if (self._faceAnalysis || self._faceReady) {
+        // 面部阶段已完成：跳过视觉调用，服务端 analyze 会复用已持久化的面部结果
         self.setData({ stageText: '继续生成专属护肤报告…', progress: 65 });
         return self._faceAnalysis;
       }
@@ -237,15 +284,19 @@ Page({
           if (faceAnalysis && faceAnalysis.status === 'analyzing') {
             // 兼容服务端异步视觉任务：等 phase 进入 face_completed 后再补发 analyze
             self._faceAnalysis = null;
+            self._faceReady = false;
             self.savePending();
             return self.pollStatus(sessionId, ['face_completed', 'completed']).then(function (status) {
               if (status.status === 'completed') {
                 return { __completedResult: status.rawResult };
               }
+              self._faceReady = true;
+              self.savePending();
               return null;
             });
           }
           self._faceAnalysis = faceAnalysis || null;
+          self._faceReady = !!faceAnalysis;
           self.savePending();
           return faceAnalysis;
         });
@@ -280,13 +331,17 @@ Page({
           }
         } catch (e) {}
         self.clearPending();
-        // 分析完成：本地不再需要人脸照片路径（报告/证书均不依赖）
+        // 分析完成：显式删除本地人脸临时文件并清理分析载荷
+        self.deleteLocalFile(faceImagePath);
         try { wx.removeStorageSync(KEYS.FACE_IMAGE_PATH); } catch (e) {}
         try { wx.removeStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS); } catch (e) {}
         try { wx.removeStorageSync(KEYS.ANSWERS); } catch (e) {}
+        try { wx.removeStorageSync(KEYS.ANSWERS_SAVED_AT); } catch (e) {}
         try { wx.removeStorageSync(KEYS.SKIN_STATE); } catch (e) {}
+        try { wx.removeStorageSync(KEYS.FLOW_OWNER); } catch (e) {}
         analytics.endFlow();
         self._faceAnalysis = null;
+        self._faceReady = false;
         self._running = false;
         self._finished = true;
         self.stopTimers();
@@ -300,10 +355,11 @@ Page({
         if (self._finished) return;
         var errorPayload = err && err.data && err.data.error ? err.data.error : null;
         var errorCode = errorPayload && errorPayload.code;
-        if (errorCode === 'FACE_REQUIRED' && !self._faceRequiredRetried) {
-          // 本地缓存的 faceAnalysis 与服务端不一致：清缓存，重新走一次视觉分析
+        if ((errorCode === 'FACE_REQUIRED' || (err && err.isFacePending)) && !self._faceRequiredRetried) {
+          // 服务端面部结果缺失/进度被重置：清缓存，重新走一次视觉分析
           self._faceRequiredRetried = true;
           self._faceAnalysis = null;
+          self._faceReady = false;
           self.savePending();
           self._running = false;
           self.run();
@@ -315,10 +371,18 @@ Page({
           self.stopTimers();
           if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
           self.clearPending();
+          self.deleteLocalFile(wx.getStorageSync(KEYS.FACE_IMAGE_PATH) || '');
+          try { wx.removeStorageSync(KEYS.FACE_IMAGE_PATH); } catch (e) {}
+          try { wx.removeStorageSync(KEYS.FACE_IMAGE_SIDE_PATHS); } catch (e) {}
+          try { wx.removeStorageSync(KEYS.ANSWERS); } catch (e) {}
+          try { wx.removeStorageSync(KEYS.ANSWERS_SAVED_AT); } catch (e) {}
+          try { wx.removeStorageSync(KEYS.SKIN_STATE); } catch (e) {}
+          try { wx.removeStorageSync(KEYS.FLOW_OWNER); } catch (e) {}
+          analytics.endFlow();
           wx.reLaunch({ url: '/pages/result/result?sessionId=' + self._sessionId });
           return;
         }
-        self.fail((err && err.message) || '分析失败，请重试');
+        self.fail((err && err.message) || '分析失败，请重试', self.errorActionFor(err, errorCode));
       });
   },
 
@@ -408,8 +472,20 @@ Page({
             reject(new Error('会话不存在或无权访问'));
             return;
           }
+          if (res && (res.status === 'pending' || res.phase === 'pending') &&
+              targets.indexOf('face_completed') !== -1) {
+            // 视觉 claim 被服务端释放/重置：继续等只会空转到 180s，交给外面重新跑 face-analyze
+            var pendingErr = new Error('面部分析进度已重置，请重试');
+            pendingErr.isFacePending = true;
+            reject(pendingErr);
+            return;
+          }
           if (Date.now() > deadline || attempt >= POLL_MAX_ATTEMPTS) {
             reject(new Error('分析结果准备时间有点长，请重试一次'));
+            return;
+          }
+          if (self._finished) {
+            reject(new Error('分析已取消'));
             return;
           }
           self.setData({ progress: Math.min(90, 65 + attempt) });
@@ -483,11 +559,16 @@ Page({
     });
   },
 
-  fail: function (message) {
+  fail: function (message, action) {
     this._running = false;
     this.stopTimers();
     if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
-    this.setData({ running: false, error: message, stageText: '分析未完成' });
+    this.setData({
+      running: false,
+      error: message,
+      errorAction: action || 'retry',
+      stageText: '分析未完成',
+    });
     this.savePending();
   },
 
@@ -503,5 +584,9 @@ Page({
         wx.reLaunch({ url: '/pages/index/index' });
       },
     });
+  },
+
+  onBackHome: function () {
+    wx.reLaunch({ url: '/pages/index/index' });
   },
 });

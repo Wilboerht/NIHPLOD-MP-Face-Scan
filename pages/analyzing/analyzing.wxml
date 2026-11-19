@@ -11,7 +11,8 @@
   <block wx:else>
     <view class="error-icon">!</view>
     <view class="error-text">{{error}}</view>
-    <button class="btn-primary retry-btn" loading="{{running}}" disabled="{{running}}" bindtap="onRetry">重试</button>
-    <button class="btn-plain back-btn" bindtap="onBack">返回重拍</button>
+    <button wx:if="{{errorAction === 'retry'}}" class="btn-primary retry-btn" loading="{{running}}" disabled="{{running}}" bindtap="onRetry">重试</button>
+    <button wx:if="{{errorAction === 'home' || errorAction === 'reconsent'}}" class="btn-primary retry-btn" bindtap="onBackHome">{{errorAction === 'reconsent' ? '返回首页重新授权' : '返回首页'}}</button>
+    <button wx:if="{{errorAction === 'retry' || errorAction === 'retake'}}" class="btn-plain back-btn" bindtap="onBack">返回重拍</button>
   </block>
 </view>

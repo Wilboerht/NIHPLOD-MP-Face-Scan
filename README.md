@@ -48,7 +48,7 @@
 └── utils/
     ├── auth.js                    # 登录 / 绑手机 / token 刷新 / 登出（OAuth public client）
     ├── request.js                 # 统一请求封装：双 base、401 静默刷新重试、错误解析
-    ├── upload.js                  # 头像走官网 /api/oauth/userinfo/avatar；通用图片 /api/oss/sign + PUT
+    ├── upload.js                  # 头像上传（官网 /api/oauth/userinfo/avatar）
     ├── account.js                 # 用户中心共享逻辑（资料 / 换绑 / 密码 / 重新登录）
     ├── subscribe.js               # 报告完成 / 复测提醒订阅消息
     ├── legal-text.js              # 隐私政策 / 用户协议简明版文案
@@ -75,11 +75,28 @@
 
 1. 用微信开发者工具「导入项目」选择本项目根目录（AppID：`wxb52753aa11ed6654`）
 2. 无需 npm 构建（`nodeModules: false`），直接编译运行
-3. 域名需在微信公众平台配置：
+3. 静态完整性检查（JS 语法 / JSON / WXML 标签与事件 / CSS 变量 / 编码）与核心逻辑测试：
+   ```
+   npm run check
+   npm test
+   ```
+4. 域名需在微信公众平台配置：
    - `request`：`https://nihplod.cn`、`https://smart.nihplod.cn`
    - `uploadFile`：`https://nihplod.cn`（头像上传）
    - `downloadFile`：`https://smart.nihplod.cn`、`https://nihplod.cn`（证书底图/图片）
-4. 调试注意：`config.js` 当前指向生产域名，开发调试会消耗真实 AI 配额并写入真实账号；如需隔离，请改为测试域名/测试环境。
+5. 调试注意：`config.js` 当前指向生产域名，开发调试会消耗真实 AI 配额并写入真实账号；如需隔离，请改为测试域名/测试环境。
+
+## 发版前置检查
+
+- **OAuth scope**：`wechat-mp-skin` 的 OAuth Client 与官网 `MINIPROGRAM_CLIENTS` 需包含
+  `profile:write`（资料/头像）、`password:write`（密码）、`phone:write`（换绑手机号）、
+  `account:delete`（注销）。缺少时对应页面会返回 403。
+- **收货地址**：官网 `OAUTH_ADDRESS_ALLOWED_CLIENTS` 需包含 `wechat-mp-skin`；
+  否则 `/api/oauth/addresses` 全部 403（用户中心显示「暂不可用」）。
+- **订阅消息**：`config.js` 中 `SUBSCRIBE_TEMPLATES` 的两个模板需已在小程序后台启用。
+- **隐私版本**：`config.js` 的 `PRIVACY_VERSION` 必须与子站 `CONSENT_VERSION` 兼容。
+- **法务文案**：`utils/legal-text.js` 为简明版，发版前与官网最新隐私政策/用户协议核对。
+- **真机验证**：摄像头 VisionKit 自动拍摄、相册保存证书、微信小店/第三方小程序短链跳转。
 
 ## 配置说明
 

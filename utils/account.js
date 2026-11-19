@@ -50,6 +50,8 @@ function isInsufficientScope(err) {
 // 同步本地 USER_INFO（首页问候语/历史等展示用）
 function updateLocalUser(patch) {
   var user = wx.getStorageSync(config.STORAGE_KEYS.USER_INFO) || {};
+  // 本地没有 id 时不补写部分用户对象，避免 currentUserId/隐私归属判断被置空
+  if (!user || !user.id) return;
   if (patch && patch.name) user.name = patch.name;
   if (patch && patch.avatarUrl) user.avatarUrl = patch.avatarUrl;
   wx.setStorageSync(config.STORAGE_KEYS.USER_INFO, user);

@@ -18,7 +18,7 @@ module.exports = {
   },
 
   // 隐私协议版本：与子站当前 CONSENT_VERSION 保持一致
-  PRIVACY_VERSION: '2026-11-11',
+  PRIVACY_VERSION: '2026-11-19',
 
   // 微信小店：当前商品级短链/商品 id 存在后端 purchaseLinks 中，
   // 有 shortLink 才显示「微信小店购买」；没有配置时按钮自动隐藏。
@@ -44,6 +44,7 @@ module.exports = {
     NEED_BINDING: 'mp_need_binding',
     PRIVACY_AGREED: 'mp_privacy_agreed',
     ANSWERS: 'mp_advisor_answers',
+    ANSWERS_SAVED_AT: 'mp_advisor_answers_saved_at',
     SKIN_STATE: 'mp_skin_state',
     FACE_IMAGE_PATH: 'mp_face_image_path',
     FACE_IMAGE_SIDE_PATHS: 'mp_face_image_side_paths',
@@ -51,5 +52,6 @@ module.exports = {
     LATEST_SESSION: 'mp_latest_session',
     PENDING_ANALYSIS: 'mp_pending_analysis',
     PENDING_ROUTE: 'mp_pending_route',
+    FLOW_OWNER: 'mp_flow_owner',
   },
 };

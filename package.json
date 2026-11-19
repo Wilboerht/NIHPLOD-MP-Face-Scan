@@ -1,0 +1,10 @@
+{
+  "name": "skin-advisor-mp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "肌智派 AI 测肤微信小程序",
+  "scripts": {
+    "check": "node scripts/check-wxml-integrity.js",
+    "test": "node scripts/test-core.js"
+  }
+}

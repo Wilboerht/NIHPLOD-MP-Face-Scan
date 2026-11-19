@@ -5,6 +5,7 @@ var request = require('./request.js').request;
 var util = require('./util.js');
 
 var KEYS = config.STORAGE_KEYS;
+var plainText = util.plainText;
 var VIEW_CACHE_PREFIX = 'mp_report_view_';
 // 报告会归档/失效，缓存不能永久命中；短 TTL + 重新拉取
 var VIEW_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -130,12 +131,13 @@ function toPageData(view) {
   var conditions = Array.isArray(view && view.conditions) ? view.conditions : [];
 
   var dimensionList = dims.map(function (d) {
+    d = d && typeof d === 'object' ? d : {};
     return {
       key: d.key,
       label: dimensionLabel(d.key, d.label),
       score: typeof d.score === 'number' ? Math.round(d.score) : null,
-      gradeLabel: gradeLabel(d),
-      details: d.details || '',
+      gradeLabel: plainText(gradeLabel(d)),
+      details: plainText(d.details || ''),
       lowConfidence: !!d.lowConfidence,
       notVisible: !!d.notVisible,
       attention: !d.notVisible && typeof d.score === 'number' && d.score < 70,
@@ -148,33 +150,35 @@ function toPageData(view) {
   dimensionList.forEach(function (d) { dimByKey[d.key] = d; });
 
   var issues = findings.map(function (f) {
+    f = f && typeof f === 'object' ? f : {};
     var evidence = (Array.isArray(f.evidence) ? f.evidence : []).filter(function (e) {
       var dim = dimByKey[e.key];
       return !dim || (!dim.notVisible && !dim.lowConfidence);
     });
     return {
       id: f.id,
-      title: f.title || '',
+      title: plainText(f.title || ''),
       severity: f.severity,
-      severityLabel: f.severityLabel || '',
-      observation: f.observation || '',
-      directCauses: f.directCauses || '',
-      indirectCauses: f.indirectCauses || '',
-      skincarePlan: f.skincarePlan || '',
-      lifestylePlan: f.lifestylePlan || '',
-      medicalBoundary: f.medicalBoundary || '',
+      severityLabel: plainText(f.severityLabel || ''),
+      observation: plainText(f.observation || ''),
+      directCauses: plainText(f.directCauses || ''),
+      indirectCauses: plainText(f.indirectCauses || ''),
+      skincarePlan: plainText(f.skincarePlan || ''),
+      lifestylePlan: plainText(f.lifestylePlan || ''),
+      medicalBoundary: plainText(f.medicalBoundary || ''),
       evidenceText: evidence.map(function (e) {
-        return (e.label || e.key) + (typeof e.score === 'number' ? ' ' + e.score + ' 分' : '');
+        return plainText(e.label || e.key) + (typeof e.score === 'number' ? ' ' + e.score + ' 分' : '');
       }).join(' · '),
     };
   });
 
   var zoneList = zones.map(function (z) {
+    z = z && typeof z === 'object' ? z : {};
     return {
       key: z.key,
       label: z.label || util.ZONE_LABELS[z.key] || z.key,
-      condition: z.condition || '',
-      advice: z.advice || '',
+      condition: plainText(z.condition || ''),
+      advice: plainText(z.advice || ''),
       needsAttention: !!z.needsAttention,
       scores: Array.isArray(z.scores) ? z.scores : [],
     };
@@ -195,40 +199,45 @@ function toPageData(view) {
   }
 
   var routine = view && view.routine ? {
-    morning: (view.routine.morning || []).map(function (step) {
+    morning: (view.routine.morning || []).map(function (step, index) {
       return {
-        text: step.text || '',
-        productName: step.productName || '',
-        category: step.category || '',
-        howToUse: step.howToUse || '',
+        key: 'm' + index,
+        text: plainText(step.text || ''),
+        productName: plainText(step.productName || ''),
+        category: plainText(step.category || ''),
+        howToUse: plainText(step.howToUse || ''),
       };
     }),
-    night: (view.routine.night || []).map(function (step) {
+    night: (view.routine.night || []).map(function (step, index) {
       return {
-        text: step.text || '',
-        productName: step.productName || '',
-        category: step.category || '',
-        howToUse: step.howToUse || '',
+        key: 'n' + index,
+        text: plainText(step.text || ''),
+        productName: plainText(step.productName || ''),
+        category: plainText(step.category || ''),
+        howToUse: plainText(step.howToUse || ''),
       };
     }),
-    note: view.routine.note || '',
-    formulaCore: view.routine.formulaCore || '',
-    onlyOneSet: view.routine.onlyOneSet || '',
-    routineNote: view.routine.routineNote || '',
+    note: plainText(view.routine.note || ''),
+    formulaCore: plainText(view.routine.formulaCore || ''),
+    onlyOneSet: plainText(view.routine.onlyOneSet || ''),
+    routineNote: plainText(view.routine.routineNote || ''),
   } : null;
 
   var rawSafety = view && view.safety ? view.safety : null;
+  var safetyList = function (value) {
+    return (Array.isArray(value) ? value : []).map(plainText).filter(Boolean);
+  };
   var safety = rawSafety ? {
-    excluded: Array.isArray(rawSafety.excluded) ? rawSafety.excluded : [],
-    actives: Array.isArray(rawSafety.actives) ? rawSafety.actives : [],
-    conflicts: Array.isArray(rawSafety.conflicts) ? rawSafety.conflicts : [],
-    patchTest: rawSafety.patchTest || '',
-    sunProtection: rawSafety.sunProtection || '',
-    whenToSeeDoctor: Array.isArray(rawSafety.whenToSeeDoctor) ? rawSafety.whenToSeeDoctor : [],
-    excludedText: (Array.isArray(rawSafety.excluded) ? rawSafety.excluded : []).join('、'),
-    activesText: (Array.isArray(rawSafety.actives) ? rawSafety.actives : []).join('、'),
-    conflictsText: (Array.isArray(rawSafety.conflicts) ? rawSafety.conflicts : []).join('；'),
-    doctorText: (Array.isArray(rawSafety.whenToSeeDoctor) ? rawSafety.whenToSeeDoctor : []).join('；'),
+    excluded: safetyList(rawSafety.excluded),
+    actives: safetyList(rawSafety.actives),
+    conflicts: safetyList(rawSafety.conflicts),
+    patchTest: plainText(rawSafety.patchTest || ''),
+    sunProtection: plainText(rawSafety.sunProtection || ''),
+    whenToSeeDoctor: safetyList(rawSafety.whenToSeeDoctor),
+    excludedText: safetyList(rawSafety.excluded).join('、'),
+    activesText: safetyList(rawSafety.actives).join('、'),
+    conflictsText: safetyList(rawSafety.conflicts).join('；'),
+    doctorText: safetyList(rawSafety.whenToSeeDoctor).join('；'),
   } : null;
 
   var hasFindingBoundary = issues.some(function (issue) { return !!issue.medicalBoundary; });
@@ -237,10 +246,20 @@ function toPageData(view) {
     safety.doctorText = '';
   }
 
-  var next = view && view.next ? view.next : null;
+  var next = view && view.next ? {
+    retestFocus: Array.isArray(view.next.retestFocus) ? view.next.retestFocus.map(plainText).filter(Boolean) : [],
+    retestInDays: view.next.retestInDays,
+  } : null;
   var nextFocusText = next && Array.isArray(next.retestFocus)
     ? next.retestFocus.filter(Boolean).join('、')
     : '';
+  var topFinding = summary.topFinding ? {
+    id: summary.topFinding.id,
+    title: plainText(summary.topFinding.title || ''),
+    severity: summary.topFinding.severity,
+    severityLabel: plainText(summary.topFinding.severityLabel || ''),
+    observation: plainText(summary.topFinding.observation || ''),
+  } : null;
   var skinStateLabel = SKIN_STATE_LABELS[meta.skinState] || '';
   var dataSourceLabel = DATA_SOURCE_LABELS[meta.dataSource] || '';
   var skinAgeRange = Array.isArray(meta.skinAgeRange) && meta.skinAgeRange.length === 2
@@ -251,18 +270,28 @@ function toPageData(view) {
     viewMeta: meta,
     nickname: meta.nickname || '',
     analyzedAt: meta.analyzedAt ? util.formatTime(meta.analyzedAt) : '',
-    skinTypeLabel: meta.skinTypeLabel || '',
+    skinTypeLabel: plainText(meta.skinTypeLabel || ''),
     skinAge: typeof meta.skinAge === 'number' ? meta.skinAge : null,
     overallScore: typeof meta.overallScore === 'number' ? Math.round(meta.overallScore) : null,
-    summary: summary.overview || '',
-    topFinding: summary.topFinding || null,
-    strengths: Array.isArray(summary.strengths) ? summary.strengths : [],
-    nextStep: summary.nextStep || '',
+    summary: plainText(summary.overview || ''),
+    topFinding: topFinding,
+    strengths: Array.isArray(summary.strengths) ? summary.strengths.map(plainText).filter(Boolean) : [],
+    nextStep: plainText(summary.nextStep || ''),
     hasRadar: dimensionList.length >= 3,
     dimensionList: dimensionList,
     issues: issues,
     zoneList: zoneList,
-    conditions: conditions,
+    conditions: conditions.map(function (c, index) {
+      c = c && typeof c === 'object' ? c : {};
+      var item = {};
+      for (var key in c) {
+        if (Object.prototype.hasOwnProperty.call(c, key)) {
+          item[key] = typeof c[key] === 'string' ? plainText(c[key]) : c[key];
+        }
+      }
+      item.key = (item.condition || '') + '|' + (item.area || '') + '|' + index;
+      return item;
+    }),
     products: view && Array.isArray(view.products) ? view.products : [],
     routine: routine,
     safety: safety,
@@ -274,7 +303,7 @@ function toPageData(view) {
     dataSourceLabel: dataSourceLabel,
     coverageText: coverageText,
     narrativeSource: meta.narrativeSource || '',
-    validationMessage: meta.validationMessage || '',
+    validationMessage: plainText(meta.validationMessage || ''),
     skinState: meta.skinState || '',
     // 带妆拍摄提示：与 H5 报告一致，避免用户把妆容问题当成肌肤问题
     makeupWarning: meta.skinState === 'light_makeup' || meta.skinState === 'heavy_makeup'

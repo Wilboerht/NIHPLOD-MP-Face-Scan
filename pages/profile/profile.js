@@ -44,6 +44,7 @@ Page({
 
   onLoad: function () {
     this._saving = false;
+    this._seq = { profile: 0, address: 0, vip: 0 };
     var user = auth.getUser() || {};
     var avatar = util.absUrl(user.avatarUrl || '', 'official');
     var version = '开发版';
@@ -72,7 +73,9 @@ Page({
   // 拉取主站资料（BFF 同源：GET /api/oauth/userinfo，按 token scope 裁剪返回）
   loadProfile: function () {
     var self = this;
+    var seq = ++self._seq.profile;
     account.fetchProfile().then(function (p) {
+      if (seq !== self._seq.profile) return;
       var displayAvatar = self.data.displayAvatar;
       if (p.avatarUrl) displayAvatar = p.avatarUrl;
       self.setData({
@@ -95,6 +98,7 @@ Page({
         account.updateLocalUser({ name: p.nickname, avatarUrl: p.avatarUrl });
       }
     }).catch(function () {
+      if (seq !== self._seq.profile) return;
       self.setData({ loading: false }); // 拉取失败保持本地缓存展示
     });
   },
@@ -102,15 +106,18 @@ Page({
   // 收货地址行：已设置 / 未设置（轻量 count 查询，与 H5 口径一致）
   loadAddressLabel: function () {
     var self = this;
+    var seq = ++this._seq.address;
     request({
       base: 'official',
       url: '/api/oauth/addresses',
       method: 'GET',
       showError: false,
     }).then(function (res) {
+      if (seq !== self._seq.address) return;
       var list = res && res.data && res.data.addresses;
       if (Array.isArray(list)) self.setData({ addressLabel: list.length > 0 ? '已设置' : '未设置' });
     }).catch(function (err) {
+      if (seq !== self._seq.address) return;
       // 地址接口可能因 OAuth scope/allowlist 拒绝，不能静默显示为未设置
       self.setData({ addressLabel: err && err.statusCode === 403 ? '暂不可用' : '加载失败' });
     });
@@ -119,12 +126,14 @@ Page({
   // 会员等级 + AI 测肤用量（对齐 H5 VipPanel loadSkinTestUsage 的展示口径）
   checkVipUsage: function () {
     var self = this;
+    var seq = ++this._seq.vip;
     request({
       base: 'advisory',
       url: '/api/advisor/test-limit',
       method: 'GET',
       showError: false,
     }).then(function (data) {
+      if (seq !== self._seq.vip) return;
       var usage = data && data.usage;
       if (!usage) return;
       var level = data.level || 'REGULAR';
@@ -168,6 +177,7 @@ Page({
     var self = this;
     if (this._saving) return;
     this._saving = true;
+    this._seq.profile += 1;
     this.setData({ saving: true });
     function done() {
       self._saving = false;
@@ -200,6 +210,7 @@ Page({
     var path = e.detail.avatarUrl;
     if (!path || this._saving) return;
     this._saving = true;
+    this._seq.profile += 1;
     this.setData({ saving: true, displayAvatar: path });
     wx.showLoading({ title: '上传中…', mask: true });
     uploadAvatar(path).then(function (url) {

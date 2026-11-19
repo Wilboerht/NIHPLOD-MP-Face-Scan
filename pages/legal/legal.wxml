@@ -8,6 +8,7 @@
 
   <view class="legal-foot">
     <view>以上为简明版说明，完整条款以官网公布版本为准。</view>
+    <view class="legal-full-link" bindtap="copyFullUrl">复制完整版链接</view>
     <view>如有疑问请联系客服邮箱：service@nihplod.cn</view>
   </view>
 </view>

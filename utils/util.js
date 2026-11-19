@@ -20,6 +20,23 @@ function absUrl(url, base) {
   return url;
 }
 
+// 展示用纯文本：剥离 HTML 标签并解码常见实体，避免服务端 DOMPurify 清理后
+// 遗留的 &lt; / &amp; 在 WXML 中按字面量显示（与 H5 报告文案口径一致）
+function plainText(text) {
+  if (typeof text !== 'string') return '';
+  return text
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
 // ISO 时间 → 本地可读字符串
 function formatTime(iso) {
   if (!iso) return '';
@@ -46,8 +63,8 @@ var DIMENSION_LABELS = {
 var GRADE_LABELS = {
   excellent: '优秀',
   good: '良好',
-  average: '中等',
-  fair: '一般',
+  average: '一般',
+  fair: '需关注',
   poor: '较差',
 };
 
@@ -79,6 +96,7 @@ var SKIN_STATE_OPTIONS = [
 module.exports = {
   clientDateStr: clientDateStr,
   formatTime: formatTime,
+  plainText: plainText,
   absUrl: absUrl,
   DIMENSION_LABELS: DIMENSION_LABELS,
   GRADE_LABELS: GRADE_LABELS,

@@ -18,24 +18,8 @@ var RADAR_DIM_ORDER = [
 ];
 var RADAR_SIZE = 320; // 逻辑 px
 
-// 展示用纯文本兜底：
-// - 剥离 HTML 标签（服务端已用 DOMPurify 剥过全量标签，此处再兜历史缓存/脏数据一层）；
-//   只匹配形如 <p>/</p>/<br/> 的标签，不会误伤「用量<1ml」这类数学比较
-// - 解码服务端 DOMPurify 留下的常见实体（裸 < 会被存成 &lt;，纯文本直出会显示原文）
-function plainText(text) {
-  if (typeof text !== 'string') return '';
-  return text
-    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#x2F;/g, '/')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .trim();
-}
+// 展示用纯文本兜底（剥离标签 + 解码服务端 DOMPurify 留下的常见实体）
+var plainText = util.plainText;
 
 // 价格展示：主站同步后统一为纯数字（如 "2800"），同时兼容历史缓存 "2,800" / "¥1,350"
 function formatPrice(value) {
@@ -335,6 +319,7 @@ Page({
         gradeLabel: util.GRADE_LABELS[d.grade] || '',
         details: plainText(d.details || ''),
         notVisible: d.notVisible === true,
+        attention: d.notVisible !== true && typeof d.score === 'number' && d.score < 70,
         lowConfidence: typeof d.confidence === 'number' && d.confidence < 0.5,
         blackheads: typeof d.blackheads === 'number' ? Math.round(d.blackheads) : null,
         pimples: typeof d.pimples === 'number' ? Math.round(d.pimples) : null,
@@ -403,12 +388,15 @@ Page({
       };
     });
 
-    var conditions = (Array.isArray(face.skinConditions) ? face.skinConditions : []).map(function (c) {
+    var conditions = (Array.isArray(face.skinConditions) ? face.skinConditions : []).map(function (c, index) {
       var item = c && typeof c === 'object' ? c : {};
+      var condition = plainText(item.condition || '');
+      var area = plainText(item.area || '');
       return {
-        condition: plainText(item.condition || ''),
+        key: condition + '|' + area + '|' + index,
+        condition: condition,
         severityLabel: util.SEVERITY_LABELS[item.severity] || item.severity || '',
-        area: plainText(item.area || ''),
+        area: area,
         description: plainText(item.description || ''),
       };
     });
@@ -426,9 +414,11 @@ Page({
       : (face.skinAge && face.skinAge.estimated) || null;
     var summary = plainText(consultant.overview || analysis.summary || face.summary || '');
     var reportV3 = r.reportV3 && typeof r.reportV3 === 'object' ? r.reportV3 : null;
-    var mapRoutineSteps = function (steps) {
-      return (Array.isArray(steps) ? steps : []).map(function (step) {
+    var isLegacy = !(reportV3 || (typeof r.reportVersion === 'number' && r.reportVersion >= 3));
+    var mapRoutineSteps = function (steps, prefix) {
+      return (Array.isArray(steps) ? steps : []).map(function (step, index) {
         return {
+          key: prefix + index,
           text: plainText(step.text || ''),
           productName: plainText(step.productName || ''),
           category: plainText(step.category || ''),
@@ -437,8 +427,8 @@ Page({
       });
     };
     var routine = reportV3 && reportV3.routine ? {
-      morning: mapRoutineSteps(reportV3.routine.morning),
-      night: mapRoutineSteps(reportV3.routine.night),
+      morning: mapRoutineSteps(reportV3.routine.morning, 'm'),
+      night: mapRoutineSteps(reportV3.routine.night, 'n'),
       note: plainText(reportV3.routine.note || ''),
       formulaCore: plainText(reportV3.routine.formulaCore || ''),
       onlyOneSet: plainText(reportV3.routine.onlyOneSet || ''),
@@ -531,6 +521,7 @@ Page({
       dataSourceLabel: dataSourceLabel,
       skinStateLabel: skinStateLabel,
       skinAgeRange: skinAgeRange,
+      legacy: isLegacy,
     }, function () {
       self._radarData = radarData;
       self.initRadar();
@@ -744,13 +735,20 @@ Page({
 
   saveToAlbum: function (tempFilePath) {
     var self = this;
+    function cleanup() {
+      try {
+        wx.getFileSystemManager().unlink({ filePath: tempFilePath, fail: function () {} });
+      } catch (e) {}
+    }
     wx.saveImageToPhotosAlbum({
       filePath: tempFilePath,
       success: function () {
+        cleanup();
         analytics.track('poster_save', {}, self.data.sessionId);
         wx.showToast({ title: '已保存到相册', icon: 'success' });
       },
       fail: function (err) {
+        cleanup();
         var errMsg = (err && err.errMsg) || '';
         if (errMsg.indexOf('cancel') > -1) return;
         // 相册授权被拒 → 引导去设置页开启；其它失败给出真实提示

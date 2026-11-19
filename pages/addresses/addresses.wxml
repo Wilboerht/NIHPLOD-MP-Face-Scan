@@ -2,7 +2,7 @@
   <view wx:if="{{loading}}" class="state text-muted">加载中…</view>
 
   <view wx:elif="{{loadError}}" class="state">
-    <view class="text-muted">地址加载失败</view>
+    <view class="text-muted">{{loadErrorMessage}}</view>
     <button class="btn-plain retry" bindtap="onRetry">重试</button>
   </view>
 

@@ -32,7 +32,7 @@
 .name {
   font-size: 28rpx;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--color-text);
 }
 
 .meta {
@@ -74,7 +74,10 @@
 
 .sheet-mask {
   position: fixed;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
   z-index: 900;
   display: flex;
   align-items: flex-end;
@@ -104,7 +107,7 @@
 
 .sheet-close {
   padding: 8rpx 12rpx;
-  color: var(--color-text-tertiary);
+  color: var(--color-muted-strong);
 }
 
 .sheet-body {

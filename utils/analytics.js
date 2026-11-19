@@ -52,6 +52,7 @@ function track(event, data, sessionId) {
     url: '/api/advisor/analytics/track',
     method: 'POST',
     showError: false,
+    skipAuthRedirect: true,
     data: {
       sessionId: sessionId || getSessionId(),
       event: event,

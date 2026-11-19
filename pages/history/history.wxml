@@ -49,7 +49,7 @@
     </view>
 
     <view wx:if="{{loadingMore}}" class="load-more text-muted">加载中…</view>
-    <view wx:elif="{{page < totalPages}}" class="load-more text-muted" bindtap="onLoadMore" hover-class="row-hover" aria-role="button">上滑加载更多</view>
+    <view wx:elif="{{hasMore}}" class="load-more text-muted" bindtap="onLoadMore" hover-class="row-hover" aria-role="button">上滑加载更多</view>
     <view wx:else class="load-more text-muted">没有更多了</view>
   </block>
 </view>

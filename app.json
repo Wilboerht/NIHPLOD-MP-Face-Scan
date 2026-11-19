@@ -23,7 +23,16 @@
     "backgroundColor": "#f7f5f2",
     "backgroundTextStyle": "dark"
   },
+  "permission": {
+    "scope.camera": {
+      "desc": "用于拍摄面部照片进行 AI 肤质分析"
+    },
+    "scope.writePhotosAlbum": {
+      "desc": "用于保存测肤证书到相册"
+    }
+  },
   "style": "v2",
+  "__usePrivacyCheck__": true,
   "lazyCodeLoading": "requiredComponents",
   "navigateToMiniProgramAppIdList": [
     "wx9fb8f3d1c719c4ed"

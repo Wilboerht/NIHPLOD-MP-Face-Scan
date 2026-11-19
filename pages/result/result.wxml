@@ -117,7 +117,7 @@
     <!-- 检测到的肌肤状况 -->
     <view class="section-title" wx:if="{{conditions.length}}">肌肤状况</view>
     <view class="card" wx:if="{{conditions.length}}">
-      <view class="cond-row" wx:for="{{conditions}}" wx:key="condition">
+      <view class="cond-row" wx:for="{{conditions}}" wx:key="key">
         <text class="cond-name">{{item.condition}}</text>
         <text class="cond-sev" wx:if="{{item.severityLabel}}">{{item.severityLabel}}</text>
         <text class="cond-area text-muted" wx:if="{{item.area}}">{{item.area}}</text>
@@ -152,14 +152,14 @@
       <view class="routine-note" wx:if="{{routine.routineNote}}">本次微调：{{routine.routineNote}}</view>
       <view class="routine-block" wx:if="{{routine.morning.length > 0}}">
         <view class="routine-label">晨间</view>
-        <view class="routine-step" wx:for="{{routine.morning}}" wx:key="text">
+        <view class="routine-step" wx:for="{{routine.morning}}" wx:key="key">
           · {{item.text}}<text class="routine-product" wx:if="{{item.productName}}">（{{item.productName}}）</text>
           <view class="routine-use text-muted" wx:if="{{item.howToUse}}">{{item.howToUse}}</view>
         </view>
       </view>
       <view class="routine-block" wx:if="{{routine.night.length > 0}}">
         <view class="routine-label">夜间</view>
-        <view class="routine-step" wx:for="{{routine.night}}" wx:key="text">
+        <view class="routine-step" wx:for="{{routine.night}}" wx:key="key">
           · {{item.text}}<text class="routine-product" wx:if="{{item.productName}}">（{{item.productName}}）</text>
           <view class="routine-use text-muted" wx:if="{{item.howToUse}}">{{item.howToUse}}</view>
         </view>

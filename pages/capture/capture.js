@@ -121,6 +121,7 @@ Page({
     this._capturing = false;      // takePhoto 在途标记（普通变量，避免 setData 竞态）
     this._multiFace = false;      // 当前帧是否检测到多张人脸（阻断自动/手动拍摄）
     this._inited = false;
+    this._unloaded = false;
     this._completed = false;      // 四步拍完已进入分析页；返回本页时重置流程
 
     analytics.track('face_scan_start');
@@ -161,6 +162,7 @@ Page({
   },
 
   onUnload: function () {
+    this._unloaded = true;
     // 防内存泄漏/后台耗电：停帧监听、注销 VK 事件、停 VK session、清定时器
     this.stopFrameLoop();
     if (this._vk) {
@@ -194,8 +196,9 @@ Page({
     this._photos = {};
     try { wx.removeStorageSync(config.STORAGE_KEYS.FACE_IMAGE_PATH); } catch (e) {}
     try { wx.removeStorageSync(config.STORAGE_KEYS.FACE_IMAGE_SIDE_PATHS); } catch (e) {}
-    // 不在这里删除 PENDING_ANALYSIS：返回重拍时保留失败会话，待新照片指纹不匹配时自然失效，
-    // 避免用户重拍后重复占用测肤次数。
+    // 返回重拍视为全新测试：旧失败会话不再复用，避免服务端返回旧照片的面部结果
+    try { wx.removeStorageSync(config.STORAGE_KEYS.PENDING_ANALYSIS); } catch (e) {}
+    analytics.startNewFlow();
     this.setData({ capturing: false });
     this.applyStep(0);
   },
@@ -242,7 +245,14 @@ Page({
       session.start(function (err) {
         if (err) {
           // 降级点 3：session.start 报错（权限/硬件/算法包下载失败）
+          try { session.stop(); } catch (e) {}
+          try { session.destroy && session.destroy(); } catch (e) {}
           self.downgrade('人脸检测启动失败');
+          return;
+        }
+        if (self._unloaded) {
+          try { session.stop(); } catch (e) {}
+          try { session.destroy && session.destroy(); } catch (e) {}
           return;
         }
         self._vk = session;
@@ -279,8 +289,9 @@ Page({
 
   startFrameLoop: function () {
     var self = this;
-    if (self._frameListener || !self._cameraCtx) return;
+    if (self._unloaded || self._frameListener || !self._cameraCtx) return;
     self._frameListener = self._cameraCtx.onCameraFrame(function (frame) {
+      if (self._unloaded) return;
       var now = Date.now();
       if (now - self._lastFrameAt < POSE.FRAME_INTERVAL_MS) return; // 节流
       self._lastFrameAt = now;
@@ -505,6 +516,12 @@ Page({
     self._cameraCtx.takePhoto({
       quality: step === 'front' ? 'high' : 'normal',
       success: function (res) {
+        if (self._unloaded) {
+          try {
+            wx.getFileSystemManager().unlink({ filePath: res.tempImagePath, fail: function () {} });
+          } catch (e) {}
+          return;
+        }
         if (step !== 'front') {
           self.onStepPhoto(res.tempImagePath);
           return;
@@ -515,10 +532,17 @@ Page({
               wx.getFileSystemManager().unlink({ filePath: res.tempImagePath, fail: function () {} });
             } catch (e) {}
           }
+          if (self._unloaded) {
+            try {
+              wx.getFileSystemManager().unlink({ filePath: path, fail: function () {} });
+            } catch (e) {}
+            return;
+          }
           self.onStepPhoto(path);
         });
       },
       fail: function () {
+        if (self._unloaded) return;
         self._capturing = false;
         self.setData({ capturing: false });
         wx.showToast({ title: '拍摄失败，请重试', icon: 'none' });
@@ -537,6 +561,12 @@ Page({
   },
 
   onStepPhoto: function (path) {
+    if (this._unloaded) {
+      try {
+        wx.getFileSystemManager().unlink({ filePath: path, fail: function () {} });
+      } catch (e) {}
+      return;
+    }
     var step = STEP_ORDER[this.data.stepIndex];
     this._photos[step] = path;
     // 正脸拍摄瞬间记录个人仰头基准（H5 baselineTiltRatioRef 语义）
@@ -607,11 +637,13 @@ Page({
   // --------------------------------------------------------------------------
 
   onInitDone: function () {
+    if (this._unloaded) return;
     this.setData({ cameraReady: true });
     if (this._inited && this._vk && this.data.mode === 'auto') this.startFrameLoop();
   },
 
   onCameraError: function (e) {
+    if (this._unloaded) return;
     var self = this;
     var detail = (e && e.detail) || {};
     var errMsg = detail.errMsg || '';

@@ -194,6 +194,7 @@ function handleResponse(res, showError, base) {
  * options: {
  *   url, base: 'official'|'advisory', method, data, header, timeout,
  *   skipAuth: 不注入 Bearer（登录/刷新自身用 rawRequest，业务公开接口如 questions 可设 true），
+ *   skipAuthRedirect: 401 时只抛错、不清会话不跳登录（埋点等旁路请求用），
  *   showError: 默认 true，失败统一 toast；调用方需自行处理错误文案时设 false
  * }
  */
@@ -216,7 +217,8 @@ function request(options) {
   }
 
   // 登录态确实失效：清会话 + 跳登录，返回统一错误
-  function sessionExpiredError() {
+  // skipRedirect：埋点等旁路请求不希望 401 打断用户流程，只返回错误给调用方
+  function sessionExpiredError(skipRedirect) {
     // 旧请求的 401 不能清掉之后建立的新登录态
     if (requestEpoch !== null && authModule.getSessionEpoch &&
         authModule.getSessionEpoch() !== requestEpoch) {
@@ -225,8 +227,15 @@ function request(options) {
       stale.isSessionStale = true;
       return stale;
     }
+    if (skipRedirect) {
+      var skipped = new Error('登录已过期，请重新登录');
+      skipped.statusCode = 401;
+      skipped.skippedRedirect = true;
+      return skipped;
+    }
     var wasLoggedIn = authModule.isLoggedIn();
-    authModule.clearSession();
+    // 自动续期失败保留在途问卷/照片/分析会话，重新登录后再按账号归属决定是否清理
+    authModule.clearSession({ preserveFlow: true });
     if (wasLoggedIn || !authModule.isRecentLogout()) redirectToLogin();
     var err = new Error('登录已过期，请重新登录');
     err.statusCode = 401;
@@ -239,7 +248,7 @@ function request(options) {
   if (!skipAuth && shouldRefreshBeforeSend()) {
     preflight = doRefresh().catch(function (err) {
       if (err && err.isSessionStale) throw err;
-      if (err && err.isRefreshRejected) throw sessionExpiredError();
+      if (err && err.isRefreshRejected) throw sessionExpiredError(opts.skipAuthRedirect);
     });
   }
 
@@ -252,7 +261,7 @@ function request(options) {
           return send().then(function (retryRes) {
             if (retryRes.statusCode === 401) {
               // 刷新后仍 401：登录态确实失效
-              throw sessionExpiredError();
+              throw sessionExpiredError(opts.skipAuthRedirect);
             }
             return handleResponse(retryRes, showError, base);
           });
@@ -261,7 +270,7 @@ function request(options) {
           // 刷新失败：仅服务端明确拒绝时清会话回登录页；
           // 网络/5xx/429 保留登录态，错误原样抛给调用方
           if (err && err.isSessionStale) throw err;
-          if (err && err.isRefreshRejected) throw sessionExpiredError();
+          if (err && err.isRefreshRejected) throw sessionExpiredError(opts.skipAuthRedirect);
           throw err;
         }
       );
